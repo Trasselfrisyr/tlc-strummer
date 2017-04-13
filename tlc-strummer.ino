@@ -16,13 +16,13 @@
 unsigned long currentMillis = 0L;
 unsigned long statusPreviousMillis = 0L;
 
-byte colPin[8]          = {5,6,7,8,9,10,11,12};             // teensy digital input pins for keyboard columns
-                                                            // (not using pin 2 so you can use same hardware as original version)
-byte colNote[8]         = {10,5,0,7,2,9,4,11};              // column to note number                                            
+byte colPin[12]          = {15,20,21,5,6,7,8,9,10,11,12,14};// teensy digital input pins for keyboard columns (just leave unused ones empty)
+byte colNote[12]         = {1,8,3,10,5,0,7,2,9,4,11,6};     // column to note number                                            
                                                             // column setup for omnichord style (circle of fifths)
                                                             // chord    Db, Ab, Eb, Bb,  F,  C,  G,  D,  A,  E,  B, F#
                                                             // col/note  1,  8,  3, 10,  5,  0,  7,  2,  9,  4, 11,  6
                                                             // for chromatic order, C to B, straight order 0 to 11
+                                                            // original tlc strummer design only use pins 5 through 12 (chords Bb to B)
 
 byte rowPin[3]           = {4,3,2};                         // teensy output pins for keyboard rows
 
@@ -39,16 +39,13 @@ byte rowPin[3]           = {4,3,2};                         // teensy output pin
                                                             // 1 1 0 m7   (min+7th keys)
                                                             // 1 1 1 aug  (maj+min+7th)
 
-byte sensorPin[8]       = {1,0,23,22,19,18,17,16}; // teensy lc touch input pins
+byte sensorPin[8]       = {1,0,23,22,19,18,17,16};          // teensy lc touch input pins
+byte activeNote[8]      = {0,0,0,0,0,0,0,0};                // keeps track of active notes
 
-byte activeNote[8]      = {0,0,0,0,0,0,0,0}; // keeps track of active notes
 byte sensedNote;            // current reading
 int noteNumber;             // calculated midi note number
 int chord = 0;              // chord key setting (base note of chord)
 int chordType = 0;          // chord type (maj, min, 7th...)
-int octave = 0;             // octave setting
-int transposition = 0;      // transposition setting 
-
 
 int chordNote[8][16] = {                               //chords for up to 16 "strings" (pads), only first 8 used here
   {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1 },  //silent
@@ -63,7 +60,7 @@ int chordNote[8][16] = {                               //chords for up to 16 "st
 
 // SETUP
 void setup() {
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < 12; i++) {
      pinMode(colPin[i],INPUT_PULLUP);
   }
     for (int i = 0; i < 3; i++) {
@@ -77,11 +74,11 @@ void setup() {
 void loop() {
   currentMillis = millis();
   if ((unsigned long)(currentMillis - statusPreviousMillis) >= CHECK_INTERVAL) {
-    setNoteParamsPlay();                                                 // adjust note selection parameters with note-offs for previous params and note-ons for new
+    setNoteParamsPlay();                                                 // read keyboard input and replay active notes (if any) with new chording
     for (int scanSensors = 0; scanSensors < PADS; scanSensors++) {       // scan sensors for changes and send note on/off accordingly
-      sensedNote = (touchRead(sensorPin[scanSensors]) > 1800);           // read touch pad
+      sensedNote = (touchRead(sensorPin[scanSensors]) > 1800);           // read touch pad/pin/electrode/string/whatever
       if (sensedNote != activeNote[scanSensors]) {
-        noteNumber = START_NOTE + chord + chordNote[chordType][scanSensors] + octave + transposition;
+        noteNumber = START_NOTE + chord + chordNote[chordType][scanSensors];
         if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][scanSensors] > -1)) {    // we don't want to send midi out of range or play silent notes
           if (sensedNote){
               digitalWrite(LED_PIN, HIGH);
@@ -101,14 +98,14 @@ void loop() {
 }
 // END MAIN LOOP
 
-// Check chord keyboard and potentiometers, if changed shut off any active notes and replay with new settings
+// Check chord keyboard, if changed shut off any active notes and replay with new settings
 void setNoteParamsPlay() {
   int rePlay = 0;
   int readChord = 0;
   int readChordType = 0;
   for (int row = 0; row < 3; row++) {     // scan keyboard rows
     enableRow(row);                       // set current row low
-    for (int col = 0; col < 8; col++) {   // scan keyboard columns
+    for (int col = 0; col < 12; col++) {  // scan keyboard columns
       if (!digitalRead(colPin[col])) {    // is scanned pin low (active)?
         readChord = colNote[col];         // set chord base note
         readChordType |= (1 << row);      // set row bit in chord type
@@ -120,7 +117,7 @@ void setNoteParamsPlay() {
   }  
   if (rePlay) {
     for (int i = 0; i < PADS; i++) {
-       noteNumber = START_NOTE + chord + chordNote[chordType][i] + octave + transposition;
+       noteNumber = START_NOTE + chord + chordNote[chordType][i];
        if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][i] > -1)) {      // we don't want to send midi out of range or play silent notes
          if (activeNote[i]) {
           digitalWrite(LED_PIN, HIGH);
@@ -130,7 +127,7 @@ void setNoteParamsPlay() {
        }
     }
     for (int i = 0; i < PADS; i++) {
-      noteNumber = START_NOTE + readChord + chordNote[readChordType][i] + octave + transposition;
+      noteNumber = START_NOTE + readChord + chordNote[readChordType][i];
       if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[readChordType][i] > -1)) {    // we don't want to send midi out of range or play silent notes
         if (activeNote[i]) {
           digitalWrite(LED_PIN, HIGH);
