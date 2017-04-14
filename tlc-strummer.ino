@@ -9,7 +9,8 @@
 #define VELOCITY 64          // MIDI note velocity (64 for medium velocity, 127 for maximum)
 #define START_NOTE 60        // MIDI start note (middle C)
 #define PADS 8               // number of touch electrodes
-#define LED_PIN 13           // LED to indicate midi activity (just a short blip)
+#define LED_PIN 13           // LED to indicate midi activity
+#define BRIGHT_LED 0         // LED brightness, 0 is low, 1 is high
 
 #define CHECK_INTERVAL 5     // interval in ms for sensor check
 
@@ -74,21 +75,20 @@ void setup() {
 void loop() {
   currentMillis = millis();
   if ((unsigned long)(currentMillis - statusPreviousMillis) >= CHECK_INTERVAL) {
+    if (BRIGHT_LED) digitalWrite(LED_PIN, LOW);                          // led off for high brightness
     setNoteParamsPlay();                                                 // read keyboard input and replay active notes (if any) with new chording
     for (int scanSensors = 0; scanSensors < PADS; scanSensors++) {       // scan sensors for changes and send note on/off accordingly
       sensedNote = (touchRead(sensorPin[scanSensors]) > 1800);           // read touch pad/pin/electrode/string/whatever
       if (sensedNote != activeNote[scanSensors]) {
         noteNumber = START_NOTE + chord + chordNote[chordType][scanSensors];
         if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][scanSensors] > -1)) {    // we don't want to send midi out of range or play silent notes
+          digitalWrite(LED_PIN, HIGH);                                // sending midi, so light up led
           if (sensedNote){
-              digitalWrite(LED_PIN, HIGH);
               usbMIDI.sendNoteOn(noteNumber, VELOCITY, MIDI_CH);      // send Note On, USB MIDI
-              digitalWrite(LED_PIN, LOW);
           } else {
-              digitalWrite(LED_PIN, HIGH);
               usbMIDI.sendNoteOff(noteNumber, VELOCITY, MIDI_CH);     // send note Off, USB MIDI
-              digitalWrite(LED_PIN, LOW);
           }
+          if (!BRIGHT_LED) digitalWrite(LED_PIN, LOW);                // led off for low brightness
         }  
         activeNote[scanSensors] = sensedNote;         
       }  
@@ -120,9 +120,9 @@ void setNoteParamsPlay() {
        noteNumber = START_NOTE + chord + chordNote[chordType][i];
        if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][i] > -1)) {      // we don't want to send midi out of range or play silent notes
          if (activeNote[i]) {
-          digitalWrite(LED_PIN, HIGH);
+          digitalWrite(LED_PIN, HIGH);                        // sending midi, so light up led
           usbMIDI.sendNoteOff(noteNumber, VELOCITY, MIDI_CH); // send Note Off, USB MIDI
-          digitalWrite(LED_PIN, LOW);
+          if (!BRIGHT_LED) digitalWrite(LED_PIN, LOW);        // led off for low brightness
          }
        }
     }
@@ -130,9 +130,9 @@ void setNoteParamsPlay() {
       noteNumber = START_NOTE + readChord + chordNote[readChordType][i];
       if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[readChordType][i] > -1)) {    // we don't want to send midi out of range or play silent notes
         if (activeNote[i]) {
-          digitalWrite(LED_PIN, HIGH);
+          digitalWrite(LED_PIN, HIGH);                        // sending midi, so light up led
           usbMIDI.sendNoteOn(noteNumber, VELOCITY, MIDI_CH);  // send Note On, USB MIDI
-          digitalWrite(LED_PIN, LOW);
+          if (!BRIGHT_LED) digitalWrite(LED_PIN, LOW);        // led off for low brightness
         }
       }
     }
