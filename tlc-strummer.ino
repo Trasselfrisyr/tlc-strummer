@@ -13,7 +13,7 @@
 #define BRIGHT_LED 1         // LED brightness, 0 is low, 1 is high
 #define TOUCH_THR 1200       // threshold level for capacitive touch (lower is more sensitive)
 
-#define CHECK_INTERVAL 3     // interval in ms for sensor check
+#define CHECK_INTERVAL 4     // interval in ms for sensor check
 
 unsigned long currentMillis = 0L;
 unsigned long statusPreviousMillis = 0L;
