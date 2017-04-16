@@ -7,12 +7,13 @@
 
 #define MIDI_CH 1            // MIDI channel
 #define VELOCITY 64          // MIDI note velocity (64 for medium velocity, 127 for maximum)
-#define START_NOTE 60        // MIDI start note (middle C)
+#define START_NOTE 60        // MIDI start note (60 is middle C)
 #define PADS 8               // number of touch electrodes
 #define LED_PIN 13           // LED to indicate midi activity
-#define BRIGHT_LED 0         // LED brightness, 0 is low, 1 is high
+#define BRIGHT_LED 1         // LED brightness, 0 is low, 1 is high
+#define TOUCH_THR 1200       // threshold level for capacitive touch (lower is more sensitive)
 
-#define CHECK_INTERVAL 5     // interval in ms for sensor check
+#define CHECK_INTERVAL 3     // interval in ms for sensor check
 
 unsigned long currentMillis = 0L;
 unsigned long statusPreviousMillis = 0L;
@@ -43,20 +44,20 @@ byte rowPin[3]           = {4,3,2};                         // teensy output pin
 byte sensorPin[8]       = {1,0,23,22,19,18,17,16};          // teensy lc touch input pins
 byte activeNote[8]      = {0,0,0,0,0,0,0,0};                // keeps track of active notes
 
-byte sensedNote;            // current reading
-int noteNumber;             // calculated midi note number
-int chord = 0;              // chord key setting (base note of chord)
-int chordType = 0;          // chord type (maj, min, 7th...)
+byte sensedNote;               // current reading
+int noteNumber;                // calculated midi note number
+int chord = 0;                 // chord key setting (base note of chord)
+int chordType = 0;             // chord type (maj, min, 7th...)
 
-int chordNote[8][16] = {                               //chords for up to 16 "strings" (pads), only first 8 used here
-  {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1 },  //silent
-  { 0, 4, 7,12,16,19,24,28,31,36,40,43,48,52,55,60 },  //maj 
-  { 0, 3, 7,12,15,19,24,27,31,36,39,43,48,51,55,60 },  //min 
-  { 0, 3, 6, 9,12,15,18,21,24,27,30,33,36,39,42,45 },  //dim 
-  { 0, 4, 7,10,12,16,19,22,24,28,31,34,36,40,43,46 },  //7th 
-  { 0, 4, 7,11,12,16,19,23,24,28,31,35,36,40,43,47 },  //maj7
-  { 0, 3, 7,10,12,15,19,22,24,27,31,34,36,39,43,46 },  //m7  
-  { 0, 4, 8,12,16,20,24,28,32,36,40,44,48,52,56,60 }   //aug  
+int chordNote[8][8] = {        // chord notes for each pad/string
+  {-1,-1,-1,-1,-1,-1,-1,-1 },  // silent
+  { 0, 4, 7,12,16,19,24,28 },  // maj 
+  { 0, 3, 7,12,15,19,24,27 },  // min 
+  { 0, 3, 6, 9,12,15,18,21 },  // dim 
+  { 0, 4, 7,10,12,16,19,22 },  // 7th 
+  { 0, 4, 7,11,12,16,19,23 },  // maj7
+  { 0, 3, 7,10,12,15,19,22 },  // m7  
+  { 0, 4, 8,12,16,20,24,28 }   // aug  
 };
 
 // SETUP
@@ -76,9 +77,9 @@ void loop() {
   currentMillis = millis();
   if ((unsigned long)(currentMillis - statusPreviousMillis) >= CHECK_INTERVAL) {
     if (BRIGHT_LED) digitalWrite(LED_PIN, LOW);                          // led off for high brightness
-    setNoteParamsPlay();                                                 // read keyboard input and replay active notes (if any) with new chording
+    readKeyboard();                                                      // read keyboard input and replay active notes (if any) with new chording
     for (int scanSensors = 0; scanSensors < PADS; scanSensors++) {       // scan sensors for changes and send note on/off accordingly
-      sensedNote = (touchRead(sensorPin[scanSensors]) > 1800);           // read touch pad/pin/electrode/string/whatever
+      sensedNote = (touchRead(sensorPin[scanSensors]) > TOUCH_THR);      // read touch pad/pin/electrode/string/whatever
       if (sensedNote != activeNote[scanSensors]) {
         noteNumber = START_NOTE + chord + chordNote[chordType][scanSensors];
         if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][scanSensors] > -1)) {    // we don't want to send midi out of range or play silent notes
@@ -93,14 +94,13 @@ void loop() {
         activeNote[scanSensors] = sensedNote;         
       }  
     }
-    statusPreviousMillis = currentMillis;                                 // reset interval timing
+    statusPreviousMillis = currentMillis;                             // reset interval timing
   }
 }
 // END MAIN LOOP
 
-// Check chord keyboard, if changed shut off any active notes and replay with new settings
-void setNoteParamsPlay() {
-  int rePlay = 0;
+// Check chord keyboard, if changed shut off any active notes and replay with new chord
+void readKeyboard() {
   int readChord = 0;
   int readChordType = 0;
   for (int row = 0; row < 3; row++) {     // scan keyboard rows
@@ -111,11 +111,8 @@ void setNoteParamsPlay() {
         readChordType |= (1 << row);      // set row bit in chord type
       }
     }
-  }
-  if ((readChord != chord) || (readChordType != chordType)) {   // have the values changed since last scan?
-    rePlay = 1;
   }  
-  if (rePlay) {
+  if ((readChord != chord) || (readChordType != chordType)) { // have the values changed since last scan?
     for (int i = 0; i < PADS; i++) {
        noteNumber = START_NOTE + chord + chordNote[chordType][i];
        if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][i] > -1)) {      // we don't want to send midi out of range or play silent notes
