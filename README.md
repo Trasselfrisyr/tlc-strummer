@@ -28,3 +28,12 @@ Connect USB to computer or other host device with a midi synth software installe
 Select "Teensy MIDI" as MIDI input in synth software if necessary.
 
 Press and hold chord buttons and strum with a finger over the touch pads to play.
+
+
+Upgrade to built in audio!
+
+For additional built in audio output, you can use a Teensy 3.2 and the t32-strummer.ino sketch. It will output a Karplus-Strong algorithm generated plucked string sound on the Teensy 3.2 DAC pin (A14). Surprisingly authentic sounding to an autoharp :)
+
+Connect the Teensy 3.2 DAC output to an amplifier via a 10uF capacitor to filter out DC component (positive pin to A14 pin, negative pin to amplifier positive input, teensy gnd to amplifier negative input). If you are using an amp module with built in input capacitor, you could leave it out.
+
+Note that the DAC output pin is not in itself capable of driving speakers or headphones.
