@@ -69,14 +69,14 @@ int chordNote[8][8] = {        // chord notes for each pad/string
 float midiToFreq[128];         // for storing pre calculated frequencies for note numbers
 
 // GUItool: begin automatically generated code
-AudioSynthKarplusStrong  string8;        //xy=251,405
-AudioSynthKarplusStrong  string6;        //xy=252,328
 AudioSynthKarplusStrong  string1;        //xy=253,141
 AudioSynthKarplusStrong  string2;        //xy=254,176
 AudioSynthKarplusStrong  string3;        //xy=254,211
-AudioSynthKarplusStrong  string5;        //xy=254,289
-AudioSynthKarplusStrong  string7;        //xy=254,367
 AudioSynthKarplusStrong  string4;        //xy=256,246
+AudioSynthKarplusStrong  string5;        //xy=254,289
+AudioSynthKarplusStrong  string6;        //xy=252,328
+AudioSynthKarplusStrong  string7;        //xy=254,367
+AudioSynthKarplusStrong  string8;        //xy=251,405
 AudioMixer4              mixer1;         //xy=637,229
 AudioMixer4              mixer2;         //xy=637,332
 AudioMixer4              mixer3;         //xy=821,284
@@ -93,6 +93,9 @@ AudioConnection          patchCord9(mixer1, 0, mixer3, 0);
 AudioConnection          patchCord10(mixer2, 0, mixer3, 1);
 AudioConnection          patchCord11(mixer3, dac1);
 // GUItool: end automatically generated code
+// Pointers to Karplus-Strong strings
+AudioSynthKarplusStrong* osc[8];
+
 
 // SETUP
 void setup() {
@@ -108,6 +111,14 @@ void setup() {
       midiToFreq[i] = numToFreq(i);
   }
   AudioMemory(20);
+  osc[0] = &string1;
+  osc[1] = &string2;
+  osc[2] = &string3;
+  osc[3] = &string4;
+  osc[4] = &string5;
+  osc[5] = &string6;
+  osc[6] = &string7;
+  osc[7] = &string8;
   dac1.analogReference(INTERNAL);   // normal volume
   //dac1.analogReference(EXTERNAL); // louder
   mixer1.gain(0, 0.27);
@@ -214,22 +225,6 @@ float numToFreq(int input) {
 
 // play a string pluck sound using the teensy audio library Karplus-Strong algorithm
 void internalNoteOn(int note, int num) {
-  if (num == 0) {
-    if (midiToFreq[note] > 20.0) string1.noteOn(midiToFreq[note], 1.0);
-  } else if (num == 1) {
-    if (midiToFreq[note] > 20.0) string2.noteOn(midiToFreq[note], 1.0);
-  } else if (num == 2) {
-    if (midiToFreq[note] > 20.0) string3.noteOn(midiToFreq[note], 1.0);
-  } else if (num == 3) {
-    if (midiToFreq[note] > 20.0) string4.noteOn(midiToFreq[note], 1.0);
-  } else if (num == 4) {
-    if (midiToFreq[note] > 20.0) string5.noteOn(midiToFreq[note], 1.0);
-  } else if (num == 5) {
-    if (midiToFreq[note] > 20.0) string6.noteOn(midiToFreq[note], 1.0);
-  } else if (num == 6) {
-    if (midiToFreq[note] > 20.0) string5.noteOn(midiToFreq[note], 1.0);
-  } else if (num == 7) {
-    if (midiToFreq[note] > 20.0) string6.noteOn(midiToFreq[note], 1.0);
-  }
+  if (midiToFreq[note] > 20.0) osc[num]->noteOn(midiToFreq[note], 1.0);
 }
 
