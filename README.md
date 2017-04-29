@@ -37,3 +37,12 @@ For additional built in audio output, you can use a Teensy 3.2 and the t32-strum
 Connect the Teensy 3.2 DAC output to an amplifier via a 10uF capacitor to filter out DC component (positive pin to A14 pin, negative pin to amplifier positive input, teensy gnd to amplifier negative input). If you are using an amp module with built in input capacitor, you could leave it out.
 
 Note that the DAC output pin is not in itself capable of driving speakers or headphones.
+
+
+Work in progress now is the t32-strummer.ino, where I'm' puttin some more stuff in:
+
+To switch between autoharp and omnichord type sound, press top row (major) C and A together.
+
+To switch on/off a backing chord that is played at key press, press mid row (minor) C and A together. Adjust volume for backing chord using Cm+Dm (down) and Cm+Em (up).
+
+Idea for development: drum patterns and gated backing chords
