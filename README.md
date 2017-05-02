@@ -34,15 +34,17 @@ Upgrade to built in audio!
 
 For additional built in audio output, you can use a Teensy 3.2 and the t32-strummer-ah.ino sketch. It will output a Karplus-Strong algorithm generated plucked string sound on the Teensy 3.2 DAC pin (A14). Surprisingly authentic sounding to an autoharp :) For the more Omnichord oriented audience, there is a t32-strummer-oc.ino sketch that will fit better.
 
-Connect the Teensy 3.2 DAC output to an amplifier via a 10uF capacitor to filter out DC component (positive pin to A14 pin, negative pin to amplifier positive input, teensy gnd to amplifier negative input). If you are using an amp module with built in input capacitor, you could leave it out.
+Connect the Teensy 3.2 DAC output to an amplifier via a 4.7uF or 10uF capacitor to filter out DC component (positive pin to A14 pin, negative pin to amplifier positive input, teensy gnd to amplifier negative input). If you are using an amp module with built in input capacitor, you could leave it out.
 
 Note that the DAC output pin is not in itself capable of driving speakers or headphones.
 
 
 Work in progress now is the t32-strummer.ino, where I'm' puttin some more stuff in:
 
-To switch between autoharp and omnichord type sound, press top row (major) C and A together.
+Momentary setting switch on pin 24 (internal pullup, switch connects to GND).
 
-To switch on/off a backing chord that is played at key press, press mid row (minor) C and A together. Adjust volume for backing chord using Cm+Dm (down) and Cm+Em (up).
+To switch between autoharp and omnichord type sound, press setting switch and top row (major) C together.
+
+To switch on/off a backing chord that is played at key press, press setting switch and mid row (minor) C together. Adjust volume for backing chord using set+Fm (down) and set+Gm (up).
 
 Idea for development: drum patterns and gated backing chords

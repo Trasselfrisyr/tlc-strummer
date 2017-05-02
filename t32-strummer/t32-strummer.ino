@@ -15,6 +15,7 @@
 #define VELOCITY 64          // MIDI note velocity (64 for medium velocity, 127 for maximum)
 #define START_NOTE 60        // MIDI start note (60 is middle C)
 #define PADS 8               // number of touch electrodes
+#define SET_PIN 24           // pin for settings switch
 #define LED_PIN 13           // LED to indicate midi activity
 #define BRIGHT_LED 1         // LED brightness, 0 is low, 1 is high
 #define TOUCH_THR 1200       // threshold level for capacitive touch (lower is more sensitive)
@@ -172,13 +173,13 @@ AudioConnection          patchCord39(mixer7, dac1);
 
 
 // Pointers
-AudioSynthWaveformSine*  osc[8]{&sine1,&sine2,&sine3,&sine4,&sine5,&sine6,&sine7,&sine8};
-AudioEffectFade*         fader[8]{&fade1,&fade2,&fade3,&fade4,&fade5,&fade6,&fade7,&fade8};
-AudioSynthKarplusStrong* str[8]{&string1,&string2,&string3,&string4,&string5,&string6,&string7,&string8};
-AudioSynthWaveform*      bac[4]{&waveform1,&waveform2,&waveform3,&waveform4};
+AudioSynthWaveformSine*  osc[8]   {&sine1,&sine2,&sine3,&sine4,&sine5,&sine6,&sine7,&sine8};
+AudioEffectFade*         fader[8] {&fade1,&fade2,&fade3,&fade4,&fade5,&fade6,&fade7,&fade8};
+AudioSynthKarplusStrong* str[8]   {&string1,&string2,&string3,&string4,&string5,&string6,&string7,&string8};
+AudioSynthWaveform*      bac[4]   {&waveform1,&waveform2,&waveform3,&waveform4};
 AudioEffectFade*         oscFade = &fade9;
-AudioEffectFade*         strFade  =&fade10;
-AudioEffectFade*         bacFade  =&fade11;
+AudioEffectFade*         strFade = &fade10;
+AudioEffectFade*         bacFade = &fade11;
 
 // SETUP
 void setup() {
@@ -193,6 +194,7 @@ void setup() {
   for(int i=0;i<128;i++) {  // set up table, midi note number to frequency
       midiToFreq[i] = numToFreq(i);
   }
+  pinMode(SET_PIN, INPUT_PULLUP);
   AudioMemory(20);
   dac1.analogReference(INTERNAL);   // normal volume
   //dac1.analogReference(EXTERNAL); // louder
@@ -305,7 +307,8 @@ void readKeyboard() {
       }
     }
     if (backing) {
-      if (chordNote[readChordType][1] > -1) bacFade->fadeIn(100); else bacFade->fadeOut(500);
+      if  (!digitalRead(SET_PIN)) bacFade->fadeOut(500); // setting button mutes backing chord (if not already active)
+      else if (chordNote[readChordType][1] > -1) bacFade->fadeIn(100); else bacFade->fadeOut(500); // play backing chord if a chord key is pressed
     }
     chord = readChord;
     chordType = readChordType;
@@ -357,7 +360,7 @@ void internalBackingChordOn(int note, int num) {
 }
 
 void settingCheckPatch(){
-  byte reading = !digitalRead(colPin[5])&&!digitalRead(colPin[8]); // if C and A (top row) is pressed simultaneously 
+  byte reading = !digitalRead(SET_PIN)&&!digitalRead(colPin[5]); // if set switch and C (top row) are pressed 
   if (reading != prevP){
     if (reading){
       patch = !patch; // switch patch
@@ -368,7 +371,7 @@ void settingCheckPatch(){
 }
 
 void settingCheckBacking(){
-  byte reading = !digitalRead(colPin[5])&&!digitalRead(colPin[8]); // if C and A (mid row) is pressed simultaneously 
+  byte reading = !digitalRead(SET_PIN)&&!digitalRead(colPin[5]); // if set switch and C (mid row) are pressed 
   if (reading != prevB){
     if (reading){
       backing = !backing;   // switch backing setting
@@ -376,20 +379,20 @@ void settingCheckBacking(){
     }
   }
   prevB = reading;
-  byte readingUp = !digitalRead(colPin[5])&&!digitalRead(colPin[9]); // if C and E (mid row) is pressed simultaneously 
+  byte readingUp = !digitalRead(SET_PIN)&&!digitalRead(colPin[6]); // if set switch and F (mid row) are pressed 
   if (readingUp != prevBup){
     if (readingUp){
-      if (bacLevel < 1) bacLevel = bacLevel+0.1; //change amplitude for backing chord
+      if (bacLevel < 0.9) bacLevel = bacLevel+0.1; //change amplitude for backing chord
         for (int i=0; i < 4; i++){
           bac[i]->amplitude(bacLevel);
         }
     }
   }
   prevBup = readingUp;
-  byte readingDn = !digitalRead(colPin[5])&&!digitalRead(colPin[7]); // if C and D (mid row) is pressed simultaneously 
+  byte readingDn = !digitalRead(SET_PIN)&&!digitalRead(colPin[4]); // if set switch and G (mid row) are pressed 
   if (readingDn != prevBdn){
     if (readingDn){
-      if (bacLevel > 0.1) bacLevel = bacLevel-0.1; //change amplitude for backing chord
+      if (bacLevel > 0.2) bacLevel = bacLevel-0.1; //change amplitude for backing chord
       for (int i=0; i < 4; i++){
         bac[i]->amplitude(bacLevel);
       }
