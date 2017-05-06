@@ -56,6 +56,8 @@ Idea for development: bassline patterns.
 Settings chart:
 
 [      ][str v-][str mod][str v+][      ][      ][      ][      ]
+
 [      ][bac v-][bac 1/0][bac v+][tempo-][ gate ][tempo+][      ]
+
 [      ][rtm v-][rtm 1/0][rtm v+][r pat-][      ][r pat+][      ]
 
