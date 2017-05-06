@@ -47,4 +47,15 @@ To switch between autoharp and omnichord type sound, press setting switch and to
 
 To switch on/off a backing chord that is played at key press, press setting switch and mid row (minor) C together. Adjust volume for backing chord using set+Fm (down) and set+Gm (up).
 
-Idea for development: drum patterns and gated backing chords
+To switch on/off rhythm part, press set+C7. Rhythm part volume is adjusted down with set+F7 and up with set+G7. Next pattern is selected with set+E7 and previous pattern with set+D7. Tempo is controlled with set+Dm (down) and set+Em (up).
+
+As default, the backing chord (if activated) is gated in a rhythmic pattern. To switch this off and on, use set+Am.
+
+Idea for development: bassline patterns.
+
+Settings chart:
+
+[      ][str v-][str mod][str v+][      ][      ][      ][      ]
+[      ][bac v-][bac 1/0][bac v+][tempo-][ gate ][tempo+][      ]
+[      ][rtm v-][rtm 1/0][rtm v+][r pat-][      ][r pat+][      ]
+

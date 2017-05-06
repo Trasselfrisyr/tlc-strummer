@@ -11,6 +11,18 @@
 #include <SPI.h>
 #include <SerialFlash.h>
 
+// WAV files converted to code by wav2sketch
+// Minipops 7 samples downloaded from http://samples.kb6.de 
+
+#include "AudioSampleBd808w.h"
+#include "AudioSampleBongo2mp7w.h"
+#include "AudioSampleClavemp7w.h"
+#include "AudioSampleCowmp7w.h"
+#include "AudioSampleCymbal1mp7w.h"
+#include "AudioSampleGuiramp7w.h"
+#include "AudioSampleMaracasmp7w.h"
+#include "AudioSampleQuijadamp7w.h"
+
 #define MIDI_CH 1            // MIDI channel
 #define VELOCITY 64          // MIDI note velocity (64 for medium velocity, 127 for maximum)
 #define START_NOTE 60        // MIDI start note (60 is middle C)
@@ -30,6 +42,9 @@
 
 unsigned long currentMillis = 0L;
 unsigned long statusPreviousMillis = 0L;
+unsigned long stepTimerMillis = 0L;
+unsigned long stepInterval = 150;   // step interval in ms, one step is a 1/16 note http://www.dvfugit.com/beats-per-minute-millisecond-delay-calculator.php
+
 
 byte colPin[12]          = {15,20,21,5,6,7,8,9,10,11,12,14};// teensy digital input pins for keyboard columns (just leave unused ones empty)
 byte colNote[12]         = {1,8,3,10,5,0,7,2,9,4,11,6};     // column to note number                                            
@@ -58,12 +73,15 @@ byte sensorPin[8]       = {1,0,23,22,19,18,17,16};          // teensy lc touch i
 byte activeNote[8]      = {0,0,0,0,0,0,0,0};                // keeps track of active notes
 
 byte sensedNote;               // current reading
+byte chordButtonPressed;
 byte patch = OMNICHORD;        // built in audio sound setting (default)
-byte backing = 0;              // backing chord on/off 0/1 (default)  
-byte prevP = 0;                // setting combo edge trackings
-byte prevB = 0; 
-byte prevBup = 0;
-byte prevBdn = 0;
+byte backing = 0;              // backing chord on/off 1/0 (default)
+byte rhythm = 0;               // rhythm on/off  
+byte gated = 1;                // gated chords if rhythm on
+int prevKey = -1;              // edge tracking for setting keys (-1 is no key pressed)
+int prevRow = -1;
+int patNum = 0;                // selected rhythm pattern
+int currentStep = 0;
 int noteNumber;                // calculated midi note number
 int chord = 0;                 // chord key setting (base note of chord)
 int chordType = 0;             // chord type (maj, min, 7th...)
@@ -80,13 +98,310 @@ int chordNote[8][8] = {        // chord notes for each pad/string
 };
 
 float midiToFreq[128];         // for storing pre calculated frequencies for note numbers
-float bacLevel = 0.3;
+float strLevel = 0.8;          // strummer volume level
+float bacLevel = 0.3;          // backing chord volume level
+float rtmLevel = 0.6;          // rhythm volume level
 
-#include <Audio.h>
-#include <Wire.h>
-#include <SPI.h>
-#include <SD.h>
-#include <SerialFlash.h>
+// Patterns from Janost O2, https://janostman.wordpress.com/the-o2-source-code/
+// GU BG2 BD CL CW MA CY QU
+const unsigned char pattern[16][16] PROGMEM =
+{{
+B00101100,      //Hard rock
+B00000000,
+B00000100,
+B00000000,
+B00101110,
+B00000000,
+B00100100,
+B00000000,
+B00101100,
+B00000000,
+B00000100,
+B00000000,
+B00101110,
+B00000000,
+B00000100,
+B00000000
+},{
+B00100100,      //Disco
+B00000000,
+B00000100,
+B00010100,
+B00100110,
+B00000000,
+B00000001,
+B00000100,
+B00100100,
+B00000000,
+B00000100,
+B00000100,
+B01100110,
+B00000100,
+B01000001,
+B00000000
+},{
+B01000001,      //Reggae
+B00000100,
+B10000000,
+B00000000,
+B00010110,
+B00000000,
+B10010000,
+B00000000,
+B00100000,
+B00000000,
+B10010000,
+B00000000,
+B00000110,
+B00000000,
+B10000100,
+B00000000
+},{
+B00100100,      //Rock
+B00000000,
+B00000100,
+B00000000,
+B00000110,
+B00000000,
+B00100100,
+B00000000,
+B00100100,
+B00000000,
+B00000100,
+B00000000,
+B00000110,
+B00000000,
+B00000110,
+B00000000
+},{
+B10110101,      //Samba
+B00010100,
+B10000100,
+B00010100,
+B10110100,
+B00000100,
+B01000100,
+B10010100,
+B00100100,
+B10010100,
+B01000100,
+B10010100,
+B10110101,
+B00000100,
+B10010100,
+B00000100
+},{
+B00100110,      //Rumba
+B00000100,
+B00000001,
+B00110100,
+B00100100,
+B00000001,
+B00010110,
+B00000100,
+B00100100,
+B00000100,
+B00010001,
+B00100100,
+B00110100,
+B00000100,
+B01000001,
+B00000100
+},{
+B00100100,      //Cha-Cha
+B00000000,
+B00000000,
+B00000000,
+B00000110,
+B00000000,
+B01000000,
+B00000000,
+B00100100,
+B00000000,
+B00000010,
+B00000000,
+B01000101,
+B00000000,
+B00000010,
+B00000000
+},{
+B00100100,      //Swing
+B00000000,
+B00000000,
+B00000000,
+B00000100,
+B00000000,
+B00000000,
+B00000100,
+B00000100,
+B00000000,
+B00000000,
+B00000000,
+B00000100,
+B00000000,
+B00000000,
+B00000100
+},{
+B00100001,      //Bossa Nova
+B00000100,
+B00000100,
+B00100100,
+B00100001,
+B00000100,
+B01000100,
+B00000100,
+B00100001,
+B00000100,
+B00000100,
+B00100000,
+B00100001,
+B01000101,
+B00000100,
+B00000100
+},{
+B00100110,      //Beguine
+B00000000,
+B00000001,
+B00000000,
+B00000100,
+B00000000,
+B01100110,
+B00000000,
+B00100100,
+B00000000,
+B01000100,
+B00000100,
+B00100110,
+B00000000,
+B00000100,
+B00000000
+},{
+B10100000,      //Synthpop
+B00000000,
+B10100010,
+B00000000,
+B00100000,
+B00000000,
+B00100110,
+B00000100,
+B01100000,
+B00000000,
+B01100110,
+B00000100,
+B00100000,
+B00000000,
+B00100010,
+B10001000
+},{
+B00100000,      //Boogie
+B00000000,
+B00100100,
+B00000110,
+B00000000,
+B00100100,
+B00100100,
+B00000000,
+B00100100,
+B00000110,
+B00000000,
+B00100100,
+// end
+B11111111,
+B11111111,
+B11111111,
+B11111111
+},{
+B00100100,      //Waltz
+B00000000,
+B00000000,
+B00000000,
+B00010010,
+B00000000,
+B00000000,
+B00000000,
+B00010010,
+B00000000,
+B00000000,
+B00000000,
+// end
+B11111111,
+B11111111,
+B11111111,
+B11111111
+},{
+B00100110,      //Jazz rock
+B00000000,
+B00000100,
+B00000000,
+B00000110,
+B00000000,
+B00000100,
+B00000000,
+B00000110,
+B00000000,
+B01100000,
+B00000000,
+// end
+B11111111,
+B11111111,
+B11111111,
+B11111111
+},{
+B00100100,     //Slow rock
+B00000000,
+B00000100,
+B00000000,
+B00000100,
+B00000000,
+B00000110,
+B00000000,
+B00000100,
+B00000000,
+B00100100,
+B00000000,
+// end
+B11111111,
+B11111111,
+B11111111,
+B11111111
+},{
+B00100101,      //Oxygene
+B00001100,
+B00000100,
+B00101110,
+B00000100,
+B00010100,
+B00100101,
+B00000100,
+B00000100,
+B00101100,
+B00000100,
+B11100100,
+// end
+B11111111,
+B11111111,
+B11111111,
+B11111111
+}};
+
+byte gatePattern[16][16] {  //Rhythmic chord gating patterns
+{0,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0},  //Hard rock
+{1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0},  //Disco
+{0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0},  //Reggae
+{0,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0},  //Rock
+{1,0,1,0,1,0,0,1,0,1,0,1,1,0,1,0},  //Samba
+{0,0,1,0,0,1,0,0,0,0,1,0,0,0,1,0},  //Rumba
+{1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0},  //Cha-Cha
+{1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0},  //Swing
+{0,0,1,0,0,1,0,0,1,0,0,1,0,1,0,0},  //Bossa Nova
+{1,0,0,0,0,0,1,0,1,0,0,0,1,0,0,0},  //Beguine
+{1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0},  //Synthpop
+{1,0,1,0,0,1,1,0,1,0,0,1,0,0,0,0},  //Boogie
+{0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0},  //Waltz
+{1,0,1,0,1,0,1,0,1,0,0,0,0,0,0,0},  //Jazz rock
+{1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,0},  //Slow rock
+{0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0}   //Oxygene
+};
 
 // GUItool: begin automatically generated code
 AudioSynthWaveformSine   sine1;          //xy=85,38
@@ -109,6 +424,14 @@ AudioSynthWaveform       waveform1;      //xy=256,836
 AudioSynthWaveform       waveform2;      //xy=257,875
 AudioSynthWaveform       waveform3;      //xy=260,912
 AudioSynthWaveform       waveform4;      //xy=263,948
+AudioPlayMemory          playMem1;       //xy=261,1004
+AudioPlayMemory          playMem2;       //xy=262,1041
+AudioPlayMemory          playMem3;       //xy=263,1076
+AudioPlayMemory          playMem4;       //xy=265,1112
+AudioPlayMemory          playMem5;       //xy=266,1145
+AudioPlayMemory          playMem6;       //xy=268,1178
+AudioPlayMemory          playMem7;       //xy=271,1211
+AudioPlayMemory          playMem8;       //xy=273,1244
 AudioEffectFade          fade1;          //xy=283,62
 AudioEffectFade          fade2;          //xy=290,105
 AudioEffectFade          fade3;          //xy=299,150
@@ -123,8 +446,11 @@ AudioMixer4              mixer3;         //xy=727,183
 AudioMixer4              mixer4;         //xy=801,490
 AudioMixer4              mixer5;         //xy=828,609
 AudioMixer4              mixer8;         //xy=872,810
+AudioMixer4              mixer9;         //xy=893,1013
+AudioMixer4              mixer10;        //xy=905,1109
 AudioMixer4              mixer6;         //xy=1015,538
 AudioEffectFade          fade9;          //xy=1100,214
+AudioMixer4              mixer11;        //xy=1104,1035
 AudioEffectFade          fade10;         //xy=1150,318
 AudioEffectFade          fade11;         //xy=1201,687
 AudioMixer4              mixer7;         //xy=1353,276
@@ -148,28 +474,38 @@ AudioConnection          patchCord16(string8, 0, mixer5, 3);
 AudioConnection          patchCord17(waveform1, 0, mixer8, 0);
 AudioConnection          patchCord18(waveform2, 0, mixer8, 1);
 AudioConnection          patchCord19(waveform3, 0, mixer8, 2);
-AudioConnection          patchCord20(waveform4, 0, mixer8, 3);
-AudioConnection          patchCord21(fade1, 0, mixer1, 0);
-AudioConnection          patchCord22(fade2, 0, mixer1, 1);
-AudioConnection          patchCord23(fade3, 0, mixer1, 2);
-AudioConnection          patchCord24(fade4, 0, mixer1, 3);
-AudioConnection          patchCord25(fade5, 0, mixer2, 0);
-AudioConnection          patchCord26(fade6, 0, mixer2, 1);
-AudioConnection          patchCord27(fade7, 0, mixer2, 2);
-AudioConnection          patchCord28(fade8, 0, mixer2, 3);
-AudioConnection          patchCord29(mixer1, 0, mixer3, 0);
-AudioConnection          patchCord30(mixer2, 0, mixer3, 1);
-AudioConnection          patchCord31(mixer3, fade9);
-AudioConnection          patchCord32(mixer4, 0, mixer6, 0);
-AudioConnection          patchCord33(mixer5, 0, mixer6, 1);
-AudioConnection          patchCord34(mixer8, fade11);
-AudioConnection          patchCord35(mixer6, fade10);
-AudioConnection          patchCord36(fade9, 0, mixer7, 0);
-AudioConnection          patchCord37(fade10, 0, mixer7, 1);
-AudioConnection          patchCord38(fade11, 0, mixer7, 2);
-AudioConnection          patchCord39(mixer7, dac1);
+AudioConnection          patchCord20(playMem1, 0, mixer9, 0);
+AudioConnection          patchCord21(playMem2, 0, mixer9, 1);
+AudioConnection          patchCord22(waveform4, 0, mixer8, 3);
+AudioConnection          patchCord23(playMem3, 0, mixer9, 2);
+AudioConnection          patchCord24(playMem4, 0, mixer9, 3);
+AudioConnection          patchCord25(playMem5, 0, mixer10, 0);
+AudioConnection          patchCord26(playMem6, 0, mixer10, 1);
+AudioConnection          patchCord27(playMem7, 0, mixer10, 2);
+AudioConnection          patchCord28(playMem8, 0, mixer10, 3);
+AudioConnection          patchCord29(fade1, 0, mixer1, 0);
+AudioConnection          patchCord30(fade2, 0, mixer1, 1);
+AudioConnection          patchCord31(fade3, 0, mixer1, 2);
+AudioConnection          patchCord32(fade4, 0, mixer1, 3);
+AudioConnection          patchCord33(fade5, 0, mixer2, 0);
+AudioConnection          patchCord34(fade6, 0, mixer2, 1);
+AudioConnection          patchCord35(fade7, 0, mixer2, 2);
+AudioConnection          patchCord36(fade8, 0, mixer2, 3);
+AudioConnection          patchCord37(mixer1, 0, mixer3, 0);
+AudioConnection          patchCord38(mixer2, 0, mixer3, 1);
+AudioConnection          patchCord39(mixer3, fade9);
+AudioConnection          patchCord40(mixer4, 0, mixer6, 0);
+AudioConnection          patchCord41(mixer5, 0, mixer6, 1);
+AudioConnection          patchCord42(mixer8, fade11);
+AudioConnection          patchCord43(mixer9, 0, mixer11, 0);
+AudioConnection          patchCord44(mixer10, 0, mixer11, 1);
+AudioConnection          patchCord45(mixer6, fade10);
+AudioConnection          patchCord46(fade9, 0, mixer7, 0);
+AudioConnection          patchCord47(mixer11, 0, mixer7, 3);
+AudioConnection          patchCord48(fade10, 0, mixer7, 1);
+AudioConnection          patchCord49(fade11, 0, mixer7, 2);
+AudioConnection          patchCord50(mixer7, dac1);
 // GUItool: end automatically generated code
-
 
 
 // Pointers
@@ -177,9 +513,11 @@ AudioSynthWaveformSine*  osc[8]   {&sine1,&sine2,&sine3,&sine4,&sine5,&sine6,&si
 AudioEffectFade*         fader[8] {&fade1,&fade2,&fade3,&fade4,&fade5,&fade6,&fade7,&fade8};
 AudioSynthKarplusStrong* str[8]   {&string1,&string2,&string3,&string4,&string5,&string6,&string7,&string8};
 AudioSynthWaveform*      bac[4]   {&waveform1,&waveform2,&waveform3,&waveform4};
+AudioPlayMemory*         rtm[8]   {&playMem1,&playMem2,&playMem3,&playMem4,&playMem5,&playMem6,&playMem7,&playMem8};
 AudioEffectFade*         oscFade = &fade9;
 AudioEffectFade*         strFade = &fade10;
 AudioEffectFade*         bacFade = &fade11;
+
 
 // SETUP
 void setup() {
@@ -195,7 +533,7 @@ void setup() {
       midiToFreq[i] = numToFreq(i);
   }
   pinMode(SET_PIN, INPUT_PULLUP);
-  AudioMemory(20);
+  AudioMemory(40);
   dac1.analogReference(INTERNAL);   // normal volume
   //dac1.analogReference(EXTERNAL); // louder
   mixer1.gain(0, 0.27);
@@ -218,9 +556,24 @@ void setup() {
   mixer5.gain(3, 0.27);
   mixer6.gain(0, 0.5);
   mixer6.gain(1, 0.5);
-  mixer7.gain(0, 1);
-  mixer7.gain(1, 1);
-  mixer7.gain(2, 0.1);
+  mixer8.gain(0, 0.27);
+  mixer8.gain(1, 0.27);
+  mixer8.gain(2, 0.27);
+  mixer8.gain(3, 0.27);
+  mixer9.gain(0, 0.5);
+  mixer9.gain(1, 0.5);
+  mixer9.gain(2, 0.5);
+  mixer9.gain(3, 0.5);
+  mixer10.gain(0, 0.5);
+  mixer10.gain(1, 0.5);
+  mixer10.gain(2, 0.5);
+  mixer10.gain(3, 0.5);
+  mixer11.gain(0, 0.5);
+  mixer11.gain(1, 0.5);
+  mixer7.gain(0, strLevel);
+  mixer7.gain(1, strLevel);
+  mixer7.gain(2, 0.27);
+  mixer7.gain(3, rtmLevel);
   delay(100);
   for (int i=0; i < 4; i++){
     bac[i]->begin(WAVEFORM_SAWTOOTH);
@@ -241,7 +594,11 @@ void loop() {
   currentMillis = millis();
   if ((unsigned long)(currentMillis - statusPreviousMillis) >= CHECK_INTERVAL) {
     if (BRIGHT_LED) digitalWrite(LED_PIN, LOW);                          // led off for high brightness
-    readKeyboard();                                                      // read keyboard input and replay active notes (if any) with new chording
+    if (!digitalRead(SET_PIN)) {
+      readSettings();                                                    // settings key pressed, read settings from keyboard
+    } else {
+      readKeyboard();                                                    // read keyboard input and replay active notes (if any) with new chording
+    }
     for (int scanSensors = 0; scanSensors < PADS; scanSensors++) {       // scan sensors for changes and send note on/off accordingly
       sensedNote = (touchRead(sensorPin[scanSensors]) > TOUCH_THR);      // read touch pad/pin/electrode/string/whatever
       if (sensedNote != activeNote[scanSensors]) {
@@ -254,7 +611,7 @@ void loop() {
               internalStringNoteOn(noteNumber-12, scanSensors);       // play string note with teensy audio (built in DAC)
           } else {
               usbMIDI.sendNoteOff(noteNumber, VELOCITY, MIDI_CH);     // send note Off, USB MIDI
-              internalNoteOff(noteNumber-12, scanSensors);            // note off for internal audio (fade out)
+              internalSineNoteOff(scanSensors);            // note off for internal audio (fade out)
           }
           if (!BRIGHT_LED) digitalWrite(LED_PIN, LOW);                // led off for low brightness
         }  
@@ -263,6 +620,19 @@ void loop() {
     }
     statusPreviousMillis = currentMillis;                             // reset interval timing
   }
+  if (rhythm) {
+    if ((unsigned long)(currentMillis - stepTimerMillis) >= stepInterval) {
+      for (int i = 0; i < 8; i++){
+        if (bitRead(pattern[patNum][currentStep],7-i)) playRtm(i);
+        if (gated){
+          if (chordButtonPressed && gatePattern[patNum][currentStep]) bacFade->fadeIn(10); else bacFade->fadeOut(200); // play backing chord if a chord key is pressed
+        }
+      }
+      stepTimerMillis = currentMillis;
+      currentStep++;
+      if ((currentStep == 16) || pattern[patNum][currentStep] == 255) currentStep = 0; // start over at step 0 if we passed 15 or next step pattern value is 255 (reset)
+    }
+  }  
 }
 // END MAIN LOOP
 
@@ -272,8 +642,6 @@ void readKeyboard() {
   int readChordType = 0;
   for (int row = 0; row < 3; row++) {     // scan keyboard rows
     enableRow(row);                       // set current row low
-    if (row == 0) settingCheckPatch();
-    if (row == 1) settingCheckBacking();
     for (int col = 0; col < 12; col++) {  // scan keyboard columns
       if (!digitalRead(colPin[col])) {    // is scanned pin low (active)?
         readChord = colNote[col];         // set chord base note
@@ -288,7 +656,7 @@ void readKeyboard() {
          if (activeNote[i]) {
           digitalWrite(LED_PIN, HIGH);                        // sending midi, so light up led
           usbMIDI.sendNoteOff(noteNumber, VELOCITY, MIDI_CH); // send Note Off, USB MIDI
-          internalNoteOff(noteNumber-12, i);            // note off for internal audio (fade out)
+          internalSineNoteOff(i);                             // note off for internal audio (fade out)
           if (!BRIGHT_LED) digitalWrite(LED_PIN, LOW);        // led off for low brightness
          }
        }
@@ -306,9 +674,9 @@ void readKeyboard() {
         }
       }
     }
-    if (backing) {
-      if  (!digitalRead(SET_PIN)) bacFade->fadeOut(500); // setting button mutes backing chord (if not already active)
-      else if (chordNote[readChordType][1] > -1) bacFade->fadeIn(100); else bacFade->fadeOut(500); // play backing chord if a chord key is pressed
+    chordButtonPressed =  (chordNote[readChordType][1] > -1);
+    if (backing && !(rhythm && gated)) {
+       if (chordButtonPressed) bacFade->fadeIn(50); else bacFade->fadeOut(500); // play backing chord if a chord key is pressed
     }
     chord = readChord;
     chordType = readChordType;
@@ -344,10 +712,8 @@ void internalSineNoteOn(int note, int num) {
   }
 }
 
-void internalNoteOff(int note, int num) {
-  if (midiToFreq[note] > 20.0) {
-    fader[num]->fadeOut(RELEASE);
-  }
+void internalSineNoteOff(int num) {
+  fader[num]->fadeOut(RELEASE);
 }
 
 // play a string pluck sound using the teensy audio library Karplus-Strong algorithm
@@ -359,46 +725,34 @@ void internalBackingChordOn(int note, int num) {
   if (midiToFreq[note] > 20.0) bac[num]->frequency(midiToFreq[note]);
 }
 
-void settingCheckPatch(){
-  byte reading = !digitalRead(SET_PIN)&&!digitalRead(colPin[5]); // if set switch and C (top row) are pressed 
-  if (reading != prevP){
-    if (reading){
-      patch = !patch; // switch patch
-      xfade();        // xfade over to new patch setting
-    }
+// play rhythm samples
+void playRtm(int i){
+  switch(i){
+    case 0:
+      rtm[i]->play(AudioSampleGuiramp7w); //GU
+      break;
+    case 1:
+      rtm[i]->play(AudioSampleBongo2mp7w); //BG2
+      break;
+    case 2:
+      rtm[i]->play(AudioSampleBd808w); // BD
+      break;
+    case 3:
+      rtm[i]->play(AudioSampleClavemp7w); // CL
+      break;
+    case 4:
+      rtm[i]->play(AudioSampleCowmp7w); // CW
+      break;     
+    case 5:
+      rtm[i]->play(AudioSampleMaracasmp7w); // MA
+      break;  
+    case 6:
+      rtm[i]->play(AudioSampleCymbal1mp7w); // CY
+      break;    
+    case 7:
+      rtm[i]->play(AudioSampleQuijadamp7w); // QU
+      break;           
   }
-  prevP = reading;
-}
-
-void settingCheckBacking(){
-  byte reading = !digitalRead(SET_PIN)&&!digitalRead(colPin[5]); // if set switch and C (mid row) are pressed 
-  if (reading != prevB){
-    if (reading){
-      backing = !backing;   // switch backing setting
-      fadeBacking();        // fade backing chord in or out
-    }
-  }
-  prevB = reading;
-  byte readingUp = !digitalRead(SET_PIN)&&!digitalRead(colPin[6]); // if set switch and F (mid row) are pressed 
-  if (readingUp != prevBup){
-    if (readingUp){
-      if (bacLevel < 0.9) bacLevel = bacLevel+0.1; //change amplitude for backing chord
-        for (int i=0; i < 4; i++){
-          bac[i]->amplitude(bacLevel);
-        }
-    }
-  }
-  prevBup = readingUp;
-  byte readingDn = !digitalRead(SET_PIN)&&!digitalRead(colPin[4]); // if set switch and G (mid row) are pressed 
-  if (readingDn != prevBdn){
-    if (readingDn){
-      if (bacLevel > 0.2) bacLevel = bacLevel-0.1; //change amplitude for backing chord
-      for (int i=0; i < 4; i++){
-        bac[i]->amplitude(bacLevel);
-      }
-    }
-  }
-  prevBdn = readingDn;
 }
 
 void xfade(){
@@ -411,7 +765,160 @@ void xfade(){
   }
 }
 
-void fadeBacking(){
-  if (!backing) bacFade->fadeOut(500); else delay(500);
-}
 
+// Change settings using keyboard keys
+void readSettings() {
+  int readKey = -1;
+  int readRow = -1;
+  for (int row = 0; row < 3; row++) {     // scan keyboard rows
+    enableRow(row);                       // set current row low
+    for (int col = 0; col < 12; col++) {  // scan keyboard columns
+      if (!digitalRead(colPin[col])) {    // is scanned pin low (active)?
+        readKey = col;                    // set pressed key
+        readRow = row;                    // set row bit in chord type
+      }
+    }
+  }  
+  if ((readKey != prevKey) || (readRow != prevRow)) { // have the values changed since last scan?
+    if (readKey > -1) { // if there is a key pressed
+      if (readRow == 0) {
+        // switch case
+        switch(readKey){
+          case 0:
+            //do stuff
+            break;
+          case 1:
+            //do stuff
+            break;
+          case 2:
+            //do stuff
+            break;
+          case 3:
+            //do stuff
+            break;
+          case 4:
+            if (strLevel > 0.2) strLevel -= 0.1; //strummer vol -
+            mixer7.gain(0, strLevel);
+            mixer7.gain(1, strLevel);
+            break;
+          case 5:
+            patch = !patch;                      // switch patch
+            xfade();                             // xfade over to new patch setting
+            break;
+          case 6:
+            if (strLevel < 1.0) strLevel += 0.1; //strummer vol +
+            mixer7.gain(0, strLevel);
+            mixer7.gain(1, strLevel);
+            break;
+          case 7:
+            //do stuff
+            break;
+          case 8:
+            //do stuff
+            break;
+          case 9:
+            //do stuff
+            break;
+          case 10:
+            //do stuff
+            break;
+          case 11:
+            //do stuff
+            break;
+        }
+      } else if (readRow == 1) {
+        // switch case
+        switch(readKey){
+          case 0:
+            //do stuff
+            break;
+          case 1:
+            //do stuff
+            break;
+          case 2:
+            //do stuff
+            break;
+          case 3:
+            //do stuff
+            break;
+          case 4:
+            if (bacLevel > 0.2) bacLevel -= 0.1; // change amplitude for backing chord
+            for (int i=0; i < 4; i++){
+              bac[i]->amplitude(bacLevel);
+            }
+            break;
+          case 5:
+            backing = !backing;                  // switch backing setting
+            if (!backing) bacFade->fadeOut(500); // fade backing chord out if switched off
+            break;
+          case 6:
+            if (bacLevel < 0.9) bacLevel += 0.1; // change amplitude for backing chord
+            for (int i=0; i < 4; i++){
+              bac[i]->amplitude(bacLevel);
+            }
+            break;
+          case 7:
+            if (stepInterval < 300) stepInterval += 5; //tempo dn (min 50 bpm)
+            break;
+          case 8:
+            gated = !gated;
+            break;
+          case 9:
+            if (stepInterval > 50) stepInterval -= 5; //tempo up (max 200 bpm)
+            break;
+          case 10:
+            //do stuff
+            break;
+          case 11:
+            //do stuff
+            break;
+        }
+      } else if (readRow == 2) {
+        // switch case
+        switch(readKey){
+          case 0:
+            //do stuff
+            break;
+          case 1:
+            //do stuff
+            break;
+          case 2:
+            //do stuff
+            break;
+          case 3:
+            //do stuff
+            break;
+          case 4:
+            if (rtmLevel > 0.2) rtmLevel -= 0.1; //rtm vol -
+            mixer7.gain(3, rtmLevel);
+            break;
+          case 5:
+            rhythm = !rhythm;                    //rtm on/off
+            if (rhythm) currentStep = 0;
+            break;
+          case 6:
+            if (rtmLevel < 1) rtmLevel += 0.1; //rtm vol+
+            mixer7.gain(3, rtmLevel);
+            break;
+          case 7:
+            if (patNum > 0) patNum--;            // select previous pattern
+            break;
+          case 8:
+            //do stuff
+            break;
+          case 9:
+            if (patNum < 15) patNum++;           // select next pattern
+            break;
+          case 10:
+            //do stuff
+            break;
+          case 11:
+            //do stuff
+            break;
+        }
+      }
+    }
+    prevKey = readKey;
+    prevRow = readRow;
+  }
+}
