@@ -23,6 +23,8 @@
 #include "AudioSampleMaracasmp7w.h"
 #include "AudioSampleQuijadamp7w.h"
 
+#include "patterns.h"        // Patterns for rhythm section
+
 #define MIDI_CH 1            // MIDI channel
 #define VELOCITY 64          // MIDI note velocity (64 for medium velocity, 127 for maximum)
 #define START_NOTE 60        // MIDI start note (60 is middle C)
@@ -78,6 +80,7 @@ byte patch = OMNICHORD;        // built in audio sound setting (default)
 byte backing = 0;              // backing chord on/off 1/0 (default)
 byte rhythm = 0;               // rhythm on/off  
 byte gated = 1;                // gated chords if rhythm on
+byte bass = 1;                 // bassline if rhythm is on
 int prevKey = -1;              // edge tracking for setting keys (-1 is no key pressed)
 int prevRow = -1;
 int patNum = 0;                // selected rhythm pattern
@@ -101,307 +104,7 @@ float midiToFreq[128];         // for storing pre calculated frequencies for not
 float strLevel = 0.8;          // strummer volume level
 float bacLevel = 0.3;          // backing chord volume level
 float rtmLevel = 0.6;          // rhythm volume level
-
-// Patterns from Janost O2, https://janostman.wordpress.com/the-o2-source-code/
-// GU BG2 BD CL CW MA CY QU
-const unsigned char pattern[16][16] PROGMEM =
-{{
-B00101100,      //Hard rock
-B00000000,
-B00000100,
-B00000000,
-B00101110,
-B00000000,
-B00100100,
-B00000000,
-B00101100,
-B00000000,
-B00000100,
-B00000000,
-B00101110,
-B00000000,
-B00000100,
-B00000000
-},{
-B00100100,      //Disco
-B00000000,
-B00000100,
-B00010100,
-B00100110,
-B00000000,
-B00000001,
-B00000100,
-B00100100,
-B00000000,
-B00000100,
-B00000100,
-B01100110,
-B00000100,
-B01000001,
-B00000000
-},{
-B01000001,      //Reggae
-B00000100,
-B10000000,
-B00000000,
-B00010110,
-B00000000,
-B10010000,
-B00000000,
-B00100000,
-B00000000,
-B10010000,
-B00000000,
-B00000110,
-B00000000,
-B10000100,
-B00000000
-},{
-B00100100,      //Rock
-B00000000,
-B00000100,
-B00000000,
-B00000110,
-B00000000,
-B00100100,
-B00000000,
-B00100100,
-B00000000,
-B00000100,
-B00000000,
-B00000110,
-B00000000,
-B00000110,
-B00000000
-},{
-B10110101,      //Samba
-B00010100,
-B10000100,
-B00010100,
-B10110100,
-B00000100,
-B01000100,
-B10010100,
-B00100100,
-B10010100,
-B01000100,
-B10010100,
-B10110101,
-B00000100,
-B10010100,
-B00000100
-},{
-B00100110,      //Rumba
-B00000100,
-B00000001,
-B00110100,
-B00100100,
-B00000001,
-B00010110,
-B00000100,
-B00100100,
-B00000100,
-B00010001,
-B00100100,
-B00110100,
-B00000100,
-B01000001,
-B00000100
-},{
-B00100100,      //Cha-Cha
-B00000000,
-B00000000,
-B00000000,
-B00000110,
-B00000000,
-B01000000,
-B00000000,
-B00100100,
-B00000000,
-B00000010,
-B00000000,
-B01000101,
-B00000000,
-B00000010,
-B00000000
-},{
-B00100100,      //Swing
-B00000000,
-B00000000,
-B00000000,
-B00000100,
-B00000000,
-B00000000,
-B00000100,
-B00000100,
-B00000000,
-B00000000,
-B00000000,
-B00000100,
-B00000000,
-B00000000,
-B00000100
-},{
-B00100001,      //Bossa Nova
-B00000100,
-B00000100,
-B00100100,
-B00100001,
-B00000100,
-B01000100,
-B00000100,
-B00100001,
-B00000100,
-B00000100,
-B00100000,
-B00100001,
-B01000101,
-B00000100,
-B00000100
-},{
-B00100110,      //Beguine
-B00000000,
-B00000001,
-B00000000,
-B00000100,
-B00000000,
-B01100110,
-B00000000,
-B00100100,
-B00000000,
-B01000100,
-B00000100,
-B00100110,
-B00000000,
-B00000100,
-B00000000
-},{
-B10100000,      //Synthpop
-B00000000,
-B10100010,
-B00000000,
-B00100000,
-B00000000,
-B00100110,
-B00000100,
-B01100000,
-B00000000,
-B01100110,
-B00000100,
-B00100000,
-B00000000,
-B00100010,
-B10001000
-},{
-B00100000,      //Boogie
-B00000000,
-B00100100,
-B00000110,
-B00000000,
-B00100100,
-B00100100,
-B00000000,
-B00100100,
-B00000110,
-B00000000,
-B00100100,
-// end
-B11111111,
-B11111111,
-B11111111,
-B11111111
-},{
-B00100100,      //Waltz
-B00000000,
-B00000000,
-B00000000,
-B00010010,
-B00000000,
-B00000000,
-B00000000,
-B00010010,
-B00000000,
-B00000000,
-B00000000,
-// end
-B11111111,
-B11111111,
-B11111111,
-B11111111
-},{
-B00100110,      //Jazz rock
-B00000000,
-B00000100,
-B00000000,
-B00000110,
-B00000000,
-B00000100,
-B00000000,
-B00000110,
-B00000000,
-B01100000,
-B00000000,
-// end
-B11111111,
-B11111111,
-B11111111,
-B11111111
-},{
-B00100100,     //Slow rock
-B00000000,
-B00000100,
-B00000000,
-B00000100,
-B00000000,
-B00000110,
-B00000000,
-B00000100,
-B00000000,
-B00100100,
-B00000000,
-// end
-B11111111,
-B11111111,
-B11111111,
-B11111111
-},{
-B00100101,      //Oxygene
-B00001100,
-B00000100,
-B00101110,
-B00000100,
-B00010100,
-B00100101,
-B00000100,
-B00000100,
-B00101100,
-B00000100,
-B11100100,
-// end
-B11111111,
-B11111111,
-B11111111,
-B11111111
-}};
-
-byte gatePattern[16][16] {  //Rhythmic chord gating patterns
-{0,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0},  //Hard rock
-{1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0},  //Disco
-{0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0},  //Reggae
-{0,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0},  //Rock
-{1,0,1,0,1,0,0,1,0,1,0,1,1,0,1,0},  //Samba
-{0,0,1,0,0,1,0,0,0,0,1,0,0,0,1,0},  //Rumba
-{1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0},  //Cha-Cha
-{1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0},  //Swing
-{0,0,1,0,0,1,0,0,1,0,0,1,0,1,0,0},  //Bossa Nova
-{1,0,0,0,0,0,1,0,1,0,0,0,1,0,0,0},  //Beguine
-{1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0},  //Synthpop
-{1,0,1,0,0,1,1,0,1,0,0,1,0,0,0,0},  //Boogie
-{0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0},  //Waltz
-{1,0,1,0,1,0,1,0,1,0,0,0,0,0,0,0},  //Jazz rock
-{1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,0},  //Slow rock
-{0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0}   //Oxygene
-};
+float basLevel = 0.6;          // bassline volume level
 
 // GUItool: begin automatically generated code
 AudioSynthWaveformSine   sine1;          //xy=85,38
@@ -423,9 +126,9 @@ AudioSynthKarplusStrong  string8;        //xy=241,768
 AudioSynthWaveform       waveform1;      //xy=256,836
 AudioSynthWaveform       waveform2;      //xy=257,875
 AudioSynthWaveform       waveform3;      //xy=260,912
-AudioSynthWaveform       waveform4;      //xy=263,948
 AudioPlayMemory          playMem1;       //xy=261,1004
 AudioPlayMemory          playMem2;       //xy=262,1041
+AudioSynthWaveform       waveform4;      //xy=263,948
 AudioPlayMemory          playMem3;       //xy=263,1076
 AudioPlayMemory          playMem4;       //xy=265,1112
 AudioPlayMemory          playMem5;       //xy=266,1145
@@ -435,6 +138,7 @@ AudioPlayMemory          playMem8;       //xy=273,1244
 AudioEffectFade          fade1;          //xy=283,62
 AudioEffectFade          fade2;          //xy=290,105
 AudioEffectFade          fade3;          //xy=299,150
+AudioSynthWaveform       waveform5;      //xy=303,1365
 AudioEffectFade          fade4;          //xy=317,199
 AudioEffectFade          fade5;          //xy=331,244
 AudioEffectFade          fade6;          //xy=346,293
@@ -442,12 +146,14 @@ AudioEffectFade          fade7;          //xy=359,335
 AudioEffectFade          fade8;          //xy=375,381
 AudioMixer4              mixer1;         //xy=537,138
 AudioMixer4              mixer2;         //xy=577,240
+AudioFilterStateVariable filter1;        //xy=593,1323
 AudioMixer4              mixer3;         //xy=727,183
 AudioMixer4              mixer4;         //xy=801,490
 AudioMixer4              mixer5;         //xy=828,609
 AudioMixer4              mixer8;         //xy=872,810
 AudioMixer4              mixer9;         //xy=893,1013
 AudioMixer4              mixer10;        //xy=905,1109
+AudioEffectFade          fade12;         //xy=959,1227
 AudioMixer4              mixer6;         //xy=1015,538
 AudioEffectFade          fade9;          //xy=1100,214
 AudioMixer4              mixer11;        //xy=1104,1035
@@ -486,37 +192,44 @@ AudioConnection          patchCord28(playMem8, 0, mixer10, 3);
 AudioConnection          patchCord29(fade1, 0, mixer1, 0);
 AudioConnection          patchCord30(fade2, 0, mixer1, 1);
 AudioConnection          patchCord31(fade3, 0, mixer1, 2);
-AudioConnection          patchCord32(fade4, 0, mixer1, 3);
-AudioConnection          patchCord33(fade5, 0, mixer2, 0);
-AudioConnection          patchCord34(fade6, 0, mixer2, 1);
-AudioConnection          patchCord35(fade7, 0, mixer2, 2);
-AudioConnection          patchCord36(fade8, 0, mixer2, 3);
-AudioConnection          patchCord37(mixer1, 0, mixer3, 0);
-AudioConnection          patchCord38(mixer2, 0, mixer3, 1);
-AudioConnection          patchCord39(mixer3, fade9);
-AudioConnection          patchCord40(mixer4, 0, mixer6, 0);
-AudioConnection          patchCord41(mixer5, 0, mixer6, 1);
-AudioConnection          patchCord42(mixer8, fade11);
-AudioConnection          patchCord43(mixer9, 0, mixer11, 0);
-AudioConnection          patchCord44(mixer10, 0, mixer11, 1);
-AudioConnection          patchCord45(mixer6, fade10);
-AudioConnection          patchCord46(fade9, 0, mixer7, 0);
-AudioConnection          patchCord47(mixer11, 0, mixer7, 3);
-AudioConnection          patchCord48(fade10, 0, mixer7, 1);
-AudioConnection          patchCord49(fade11, 0, mixer7, 2);
-AudioConnection          patchCord50(mixer7, dac1);
+AudioConnection          patchCord32(waveform5, 0, filter1, 0);
+AudioConnection          patchCord33(fade4, 0, mixer1, 3);
+AudioConnection          patchCord34(fade5, 0, mixer2, 0);
+AudioConnection          patchCord35(fade6, 0, mixer2, 1);
+AudioConnection          patchCord36(fade7, 0, mixer2, 2);
+AudioConnection          patchCord37(fade8, 0, mixer2, 3);
+AudioConnection          patchCord38(mixer1, 0, mixer3, 0);
+AudioConnection          patchCord39(mixer2, 0, mixer3, 1);
+AudioConnection          patchCord40(filter1, 0, fade12, 0);
+AudioConnection          patchCord41(mixer3, fade9);
+AudioConnection          patchCord42(mixer4, 0, mixer6, 0);
+AudioConnection          patchCord43(mixer5, 0, mixer6, 1);
+AudioConnection          patchCord44(mixer8, fade11);
+AudioConnection          patchCord45(mixer9, 0, mixer11, 0);
+AudioConnection          patchCord46(mixer10, 0, mixer11, 1);
+AudioConnection          patchCord47(fade12, 0, mixer11, 2);
+AudioConnection          patchCord48(mixer6, fade10);
+AudioConnection          patchCord49(fade9, 0, mixer7, 0);
+AudioConnection          patchCord50(mixer11, 0, mixer7, 3);
+AudioConnection          patchCord51(fade10, 0, mixer7, 1);
+AudioConnection          patchCord52(fade11, 0, mixer7, 2);
+AudioConnection          patchCord53(mixer7, dac1);
 // GUItool: end automatically generated code
 
 
+
 // Pointers
-AudioSynthWaveformSine*  osc[8]   {&sine1,&sine2,&sine3,&sine4,&sine5,&sine6,&sine7,&sine8};
-AudioEffectFade*         fader[8] {&fade1,&fade2,&fade3,&fade4,&fade5,&fade6,&fade7,&fade8};
-AudioSynthKarplusStrong* str[8]   {&string1,&string2,&string3,&string4,&string5,&string6,&string7,&string8};
-AudioSynthWaveform*      bac[4]   {&waveform1,&waveform2,&waveform3,&waveform4};
-AudioPlayMemory*         rtm[8]   {&playMem1,&playMem2,&playMem3,&playMem4,&playMem5,&playMem6,&playMem7,&playMem8};
-AudioEffectFade*         oscFade = &fade9;
-AudioEffectFade*         strFade = &fade10;
-AudioEffectFade*         bacFade = &fade11;
+AudioSynthWaveformSine*     osc[8]   {&sine1,&sine2,&sine3,&sine4,&sine5,&sine6,&sine7,&sine8};
+AudioEffectFade*            fader[8] {&fade1,&fade2,&fade3,&fade4,&fade5,&fade6,&fade7,&fade8};
+AudioSynthKarplusStrong*    str[8]   {&string1,&string2,&string3,&string4,&string5,&string6,&string7,&string8};
+AudioSynthWaveform*         bac[4]   {&waveform1,&waveform2,&waveform3,&waveform4};
+AudioPlayMemory*            rtm[8]   {&playMem1,&playMem2,&playMem3,&playMem4,&playMem5,&playMem6,&playMem7,&playMem8};
+AudioSynthWaveform*         bas     = &waveform5;
+AudioEffectFade*            oscFade = &fade9;
+AudioEffectFade*            strFade = &fade10;
+AudioEffectFade*            bacFade = &fade11;
+AudioEffectFade*            basFade = &fade12;
+AudioFilterStateVariable*   basFltr = &filter1;
 
 
 // SETUP
@@ -533,7 +246,7 @@ void setup() {
       midiToFreq[i] = numToFreq(i);
   }
   pinMode(SET_PIN, INPUT_PULLUP);
-  AudioMemory(40);
+  AudioMemory(50);
   dac1.analogReference(INTERNAL);   // normal volume
   //dac1.analogReference(EXTERNAL); // louder
   mixer1.gain(0, 0.27);
@@ -568,13 +281,18 @@ void setup() {
   mixer10.gain(1, 0.5);
   mixer10.gain(2, 0.5);
   mixer10.gain(3, 0.5);
-  mixer11.gain(0, 0.5);
-  mixer11.gain(1, 0.5);
+  mixer11.gain(0, rtmLevel);
+  mixer11.gain(1, rtmLevel);
+  mixer11.gain(2, basLevel);
   mixer7.gain(0, strLevel);
   mixer7.gain(1, strLevel);
   mixer7.gain(2, 0.27);
-  mixer7.gain(3, rtmLevel);
+  mixer7.gain(3, 0.5);
   delay(100);
+  basFltr->frequency(220);
+  basFade->fadeOut(1);
+  bas->begin(WAVEFORM_SAWTOOTH);
+  bas->amplitude(0.8);
   for (int i=0; i < 4; i++){
     bac[i]->begin(WAVEFORM_SAWTOOTH);
     bac[i]->amplitude(bacLevel);
@@ -624,8 +342,16 @@ void loop() {
     if ((unsigned long)(currentMillis - stepTimerMillis) >= stepInterval) {
       for (int i = 0; i < 8; i++){
         if (bitRead(pattern[patNum][currentStep],7-i)) playRtm(i);
-        if (gated){
-          if (chordButtonPressed && gatePattern[patNum][currentStep]) bacFade->fadeIn(10); else bacFade->fadeOut(200); // play backing chord if a chord key is pressed
+      }
+      if (gated){
+        if (chordButtonPressed && gatePattern[patNum][currentStep]) bacFade->fadeIn(10); else bacFade->fadeOut(200); // play backing chord if a chord key is pressed
+      }
+      if (bass){ //play bassline notes
+        if (chordButtonPressed && (bassPattern[patNum][currentStep] > -1)){
+          internalBassNoteOn(START_NOTE + chord + chordNote[chordType][bassPattern[patNum][currentStep]]-24);
+          basFade->fadeIn(1);
+        }  else {
+          basFade->fadeOut(200);
         }
       }
       stepTimerMillis = currentMillis;
@@ -725,6 +451,10 @@ void internalBackingChordOn(int note, int num) {
   if (midiToFreq[note] > 20.0) bac[num]->frequency(midiToFreq[note]);
 }
 
+void internalBassNoteOn(int note) {
+  if (midiToFreq[note] > 20.0) bas->frequency(midiToFreq[note]);
+}
+
 // play rhythm samples
 void playRtm(int i){
   switch(i){
@@ -811,13 +541,16 @@ void readSettings() {
             mixer7.gain(1, strLevel);
             break;
           case 7:
-            //do stuff
+            if (basLevel > 0.2) basLevel -=0.1; //bassline vol -
+            mixer11.gain(2, basLevel);
             break;
           case 8:
-            //do stuff
+            bass = !bass;                       // switch bass setting
+            if (!bass) basFade->fadeOut(200);   // fade bass out if switched off
             break;
           case 9:
-            //do stuff
+            if (basLevel < 1) basLevel +=0.1;   //bassline vol +
+            mixer11.gain(2, basLevel);
             break;
           case 10:
             //do stuff
@@ -890,7 +623,9 @@ void readSettings() {
             break;
           case 4:
             if (rtmLevel > 0.2) rtmLevel -= 0.1; //rtm vol -
-            mixer7.gain(3, rtmLevel);
+            //mixer7.gain(3, rtmLevel);
+            mixer11.gain(0, rtmLevel);
+            mixer11.gain(1, rtmLevel);
             break;
           case 5:
             rhythm = !rhythm;                    //rtm on/off
@@ -898,7 +633,9 @@ void readSettings() {
             break;
           case 6:
             if (rtmLevel < 1) rtmLevel += 0.1; //rtm vol+
-            mixer7.gain(3, rtmLevel);
+            //mixer7.gain(3, rtmLevel);
+            mixer11.gain(0, rtmLevel);
+            mixer11.gain(1, rtmLevel);
             break;
           case 7:
             if (patNum > 0) patNum--;            // select previous pattern

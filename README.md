@@ -51,13 +51,13 @@ To switch on/off rhythm part, press set+C7. Rhythm part volume is adjusted down 
 
 As default, the backing chord (if activated) is gated in a rhythmic pattern. To switch this off and on, use set+Am.
 
-Idea for development: bassline patterns.
+Now also bassline patterns. Use set+E and set+E for volume, and set+A for on/off.
 
 Settings chart:
 
-[      ][str v-][str mod][str v+][      ][      ][      ][      ]
+[      ][str v-][str mod][str v+][bas v-][bas 1/0][bas v+][      ]
 
-[      ][bac v-][bac 1/0][bac v+][tempo-][ gate ][tempo+][      ]
+[      ][bac v-][bac 1/0][bac v+][tempo-][bac gat][tempo+][      ]
 
-[      ][rtm v-][rtm 1/0][rtm v+][r pat-][      ][r pat+][      ]
+[      ][rtm v-][rtm 1/0][rtm v+][r pat-][       ][r pat+][      ]
 
