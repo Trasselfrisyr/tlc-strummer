@@ -4,7 +4,8 @@
 //   by Johan Berglund, April 2017                                     //
 //                                                                     //
 /////////////////////////////////////////////////////////////////////////
-//#define MPR121
+
+//#define MPR121 // Uncomment if using optional MPR121 touch sensor board 
 
 #include <Audio.h>
 #include <Wire.h>
@@ -291,13 +292,12 @@ void setup() {
   digitalWrite(MPR_PWR_PIN, HIGH);
   digitalWrite(MPR_GND_PIN, LOW);
   delay(100);
-  if (!capTouch.begin(0x5A)) { // if MPR121 board is not found, just flash LED slowly to indicate error state
-    digitalWrite(LED_PIN, HIGH);
-    delay(1000);
-    digitalWrite(LED_PIN, LOW);
-    delay(1000);
+  if (!capTouch.begin(0x5A)) { // if MPR121 board is not found, just do nothing
     while (1);
   }
+  blink121(); // indicate running with 1-2-1 LED flash if using MPR121
+  #else
+  blink32();  // indicate running with 3-2 LED flash if running default Teensy 3.2 touch sensing
   #endif
   for (int i = 0; i < 12; i++) {
      pinMode(colPin[i],INPUT_PULLUP);
@@ -593,6 +593,47 @@ void xfade(){
   }
 }
 
+void blink121(){
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_PIN, LOW);
+    delay(200);
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_PIN, LOW);
+    delay(100);
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_PIN, LOW);
+    delay(200);
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_PIN, LOW);
+    delay(100);
+}
+
+void blink32(){
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_PIN, LOW);
+    delay(100);
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_PIN, LOW);
+    delay(100);
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_PIN, LOW);
+    delay(200);
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_PIN, LOW);
+    delay(100);
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_PIN, LOW);
+    delay(100);
+}
 
 // Change settings using keyboard keys
 void readSettings() {
