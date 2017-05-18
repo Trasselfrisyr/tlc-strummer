@@ -4,7 +4,7 @@
 //   by Johan Berglund, April 2017                                     //
 //                                                                     //
 /////////////////////////////////////////////////////////////////////////
-#define MPR121
+//#define MPR121
 
 #include <Audio.h>
 #include <Wire.h>
@@ -479,7 +479,8 @@ void readKeyboard() {
         noteNumber = START_NOTE + readChord + chordNote[readChordType][i];
       }
       if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[readChordType][i] > -1)) {    // we don't want to send midi out of range or play silent notes
-        if (i < 4) internalBackingChordOn(noteNumber-12, i);
+        if (reverse && ((PADS - i) < 4)) internalBackingChordOn(noteNumber-12, PADS - i);
+        if (!reverse && (i < 4)) internalBackingChordOn(noteNumber-12, i); 
         if (activeNote[i]) {
           digitalWrite(LED_PIN, HIGH);                        // sending midi, so light up led
           usbMIDI.sendNoteOn(noteNumber, VELOCITY, MIDI_CH);  // send Note On, USB MIDI
