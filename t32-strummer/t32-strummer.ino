@@ -4,12 +4,16 @@
 //   by Johan Berglund, April 2017                                     //
 //                                                                     //
 /////////////////////////////////////////////////////////////////////////
+#define MPR121
 
 #include <Audio.h>
 #include <Wire.h>
 #include <SD.h>
 #include <SPI.h>
 #include <SerialFlash.h>
+#if defined(MPR121)
+#include <Adafruit_MPR121.h>
+#endif
 
 // WAV files converted to code by wav2sketch
 // Minipops 7 samples downloaded from http://samples.kb6.de 
@@ -28,7 +32,13 @@
 #define MIDI_CH 1            // MIDI channel
 #define VELOCITY 64          // MIDI note velocity (64 for medium velocity, 127 for maximum)
 #define START_NOTE 60        // MIDI start note (60 is middle C)
-#define PADS 8               // number of touch electrodes
+#if defined(MPR121)
+#define PADS 12              // number of touch electrodes (MPR121)
+#define MPR_PWR_PIN 23       // MPR121 connects to Teensy pins 18 (SDA), 19 (SCL), 23 (3.3V) and 16 (GND)
+#define MPR_GND_PIN 16
+#else
+#define PADS 8               // number of touch electrodes (built in)
+#endif
 #define SET_PIN 24           // pin for settings switch
 #define LED_PIN 13           // LED to indicate midi activity
 #define BRIGHT_LED 1         // LED brightness, 0 is low, 1 is high
@@ -71,12 +81,12 @@ byte rowPin[3]           = {4,3,2};                         // teensy output pin
                                                             // 1 1 0 m7   (min+7th keys)
                                                             // 1 1 1 aug  (maj+min+7th)
 
-byte sensorPin[8]       = {1,0,23,22,19,18,17,16};          // teensy lc touch input pins
-byte activeNote[8]      = {0,0,0,0,0,0,0,0};                // keeps track of active notes
+byte activeNote[12]      = {0,0,0,0,0,0,0,0,0,0,0,0};                // keeps track of active notes
 
 byte sensedNote;               // current reading
 byte chordButtonPressed;
 byte patch = OMNICHORD;        // built in audio sound setting (default)
+byte reverse = 0;              // reverse strumming direction
 byte backing = 0;              // backing chord on/off 1/0 (default)
 byte rhythm = 0;               // rhythm on/off  
 byte gated = 1;                // gated chords if rhythm on
@@ -89,15 +99,15 @@ int noteNumber;                // calculated midi note number
 int chord = 0;                 // chord key setting (base note of chord)
 int chordType = 0;             // chord type (maj, min, 7th...)
 
-int chordNote[8][8] = {        // chord notes for each pad/string
-  {-1,-1,-1,-1,-1,-1,-1,-1 },  // silent
-  { 0, 4, 7,12,16,19,24,28 },  // maj 
-  { 0, 3, 7,12,15,19,24,27 },  // min 
-  { 0, 3, 6, 9,12,15,18,21 },  // dim 
-  { 0, 4, 7,10,12,16,19,22 },  // 7th 
-  { 0, 4, 7,11,12,16,19,23 },  // maj7
-  { 0, 3, 7,10,12,15,19,22 },  // m7  
-  { 0, 4, 8,12,16,20,24,28 }   // aug  
+int chordNote[8][16] = {                               //chord notes for each pad/string (up to 16)
+  {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1 },  //silent
+  { 0, 4, 7,12,16,19,24,28,31,36,40,43,48,52,55,60 },  //maj 
+  { 0, 3, 7,12,15,19,24,27,31,36,39,43,48,51,55,60 },  //min 
+  { 0, 3, 6, 9,12,15,18,21,24,27,30,33,36,39,42,45 },  //dim 
+  { 0, 4, 7,10,12,16,19,22,24,28,31,34,36,40,43,46 },  //7th 
+  { 0, 4, 7,11,12,16,19,23,24,28,31,35,36,40,43,47 },  //maj7
+  { 0, 3, 7,10,12,15,19,22,24,27,31,34,36,39,43,46 },  //m7  
+  { 0, 4, 8,12,16,20,24,28,32,36,40,44,48,52,56,60 }   //aug  
 };
 
 float midiToFreq[128];         // for storing pre calculated frequencies for note numbers
@@ -105,6 +115,13 @@ float strLevel = 0.8;          // strummer volume level
 float bacLevel = 0.3;          // backing chord volume level
 float rtmLevel = 0.6;          // rhythm volume level
 float basLevel = 0.6;          // bassline volume level
+
+#if defined(MPR121)
+uint16_t touchValue;
+Adafruit_MPR121          capTouch = Adafruit_MPR121();      // MPR121 connected to pins othervise used for built in cap touch 
+#else
+byte sensorPin[8]       = {1,0,23,22,19,18,17,16};          // teensy touch input pins
+#endif
 
 // GUItool: begin automatically generated code
 AudioSynthWaveformSine   sine1;          //xy=85,38
@@ -146,11 +163,25 @@ AudioEffectFade          fade7;          //xy=359,335
 AudioEffectFade          fade8;          //xy=375,381
 AudioMixer4              mixer1;         //xy=537,138
 AudioMixer4              mixer2;         //xy=577,240
+AudioSynthWaveformSine   sine9;          //xy=578,314
+AudioSynthWaveformSine   sine10;         //xy=591,354
 AudioFilterStateVariable filter1;        //xy=593,1323
+AudioSynthWaveformSine   sine11;         //xy=605,391
+AudioSynthWaveformSine   sine12;         //xy=618,426
+AudioSynthKarplusStrong  string9;        //xy=640,673
+AudioSynthKarplusStrong  string10;       //xy=646,708
+AudioSynthKarplusStrong  string11;       //xy=652,742
+AudioSynthKarplusStrong  string12;       //xy=662,775
+AudioEffectFade          fade13;         //xy=709,320
 AudioMixer4              mixer3;         //xy=727,183
+AudioEffectFade          fade14;         //xy=743,357
+AudioEffectFade          fade15;         //xy=753,394
+AudioEffectFade          fade16;         //xy=786,427
 AudioMixer4              mixer4;         //xy=801,490
 AudioMixer4              mixer5;         //xy=828,609
+AudioMixer4              mixer12;        //xy=855,276
 AudioMixer4              mixer8;         //xy=872,810
+AudioMixer4              mixer13;        //xy=876,690
 AudioMixer4              mixer9;         //xy=893,1013
 AudioMixer4              mixer10;        //xy=905,1109
 AudioEffectFade          fade12;         //xy=959,1227
@@ -200,28 +231,43 @@ AudioConnection          patchCord36(fade7, 0, mixer2, 2);
 AudioConnection          patchCord37(fade8, 0, mixer2, 3);
 AudioConnection          patchCord38(mixer1, 0, mixer3, 0);
 AudioConnection          patchCord39(mixer2, 0, mixer3, 1);
-AudioConnection          patchCord40(filter1, 0, fade12, 0);
-AudioConnection          patchCord41(mixer3, fade9);
-AudioConnection          patchCord42(mixer4, 0, mixer6, 0);
-AudioConnection          patchCord43(mixer5, 0, mixer6, 1);
-AudioConnection          patchCord44(mixer8, fade11);
-AudioConnection          patchCord45(mixer9, 0, mixer11, 0);
-AudioConnection          patchCord46(mixer10, 0, mixer11, 1);
-AudioConnection          patchCord47(fade12, 0, mixer11, 2);
-AudioConnection          patchCord48(mixer6, fade10);
-AudioConnection          patchCord49(fade9, 0, mixer7, 0);
-AudioConnection          patchCord50(mixer11, 0, mixer7, 3);
-AudioConnection          patchCord51(fade10, 0, mixer7, 1);
-AudioConnection          patchCord52(fade11, 0, mixer7, 2);
-AudioConnection          patchCord53(mixer7, dac1);
+AudioConnection          patchCord40(sine9, fade13);
+AudioConnection          patchCord41(sine10, fade14);
+AudioConnection          patchCord42(filter1, 0, fade12, 0);
+AudioConnection          patchCord43(sine11, fade15);
+AudioConnection          patchCord44(sine12, fade16);
+AudioConnection          patchCord45(string9, 0, mixer13, 0);
+AudioConnection          patchCord46(string10, 0, mixer13, 1);
+AudioConnection          patchCord47(string11, 0, mixer13, 2);
+AudioConnection          patchCord48(string12, 0, mixer13, 3);
+AudioConnection          patchCord49(fade13, 0, mixer12, 0);
+AudioConnection          patchCord50(mixer3, fade9);
+AudioConnection          patchCord51(fade14, 0, mixer12, 1);
+AudioConnection          patchCord52(fade15, 0, mixer12, 2);
+AudioConnection          patchCord53(fade16, 0, mixer12, 3);
+AudioConnection          patchCord54(mixer4, 0, mixer6, 0);
+AudioConnection          patchCord55(mixer5, 0, mixer6, 1);
+AudioConnection          patchCord56(mixer12, 0, mixer3, 2);
+AudioConnection          patchCord57(mixer8, fade11);
+AudioConnection          patchCord58(mixer13, 0, mixer6, 2);
+AudioConnection          patchCord59(mixer9, 0, mixer11, 0);
+AudioConnection          patchCord60(mixer10, 0, mixer11, 1);
+AudioConnection          patchCord61(fade12, 0, mixer11, 2);
+AudioConnection          patchCord62(mixer6, fade10);
+AudioConnection          patchCord63(fade9, 0, mixer7, 0);
+AudioConnection          patchCord64(mixer11, 0, mixer7, 3);
+AudioConnection          patchCord65(fade10, 0, mixer7, 1);
+AudioConnection          patchCord66(fade11, 0, mixer7, 2);
+AudioConnection          patchCord67(mixer7, dac1);
 // GUItool: end automatically generated code
 
 
 
+
 // Pointers
-AudioSynthWaveformSine*     osc[8]   {&sine1,&sine2,&sine3,&sine4,&sine5,&sine6,&sine7,&sine8};
-AudioEffectFade*            fader[8] {&fade1,&fade2,&fade3,&fade4,&fade5,&fade6,&fade7,&fade8};
-AudioSynthKarplusStrong*    str[8]   {&string1,&string2,&string3,&string4,&string5,&string6,&string7,&string8};
+AudioSynthWaveformSine*     osc[12]   {&sine1,&sine2,&sine3,&sine4,&sine5,&sine6,&sine7,&sine8,&sine9,&sine10,&sine11,&sine12};
+AudioEffectFade*            fader[12] {&fade1,&fade2,&fade3,&fade4,&fade5,&fade6,&fade7,&fade8,&fade13,&fade14,&fade15,&fade16};
+AudioSynthKarplusStrong*    str[12]   {&string1,&string2,&string3,&string4,&string5,&string6,&string7,&string8,&string9,&string10,&string11,&string12};
 AudioSynthWaveform*         bac[4]   {&waveform1,&waveform2,&waveform3,&waveform4};
 AudioPlayMemory*            rtm[8]   {&playMem1,&playMem2,&playMem3,&playMem4,&playMem5,&playMem6,&playMem7,&playMem8};
 AudioSynthWaveform*         bas     = &waveform5;
@@ -234,14 +280,28 @@ AudioFilterStateVariable*   basFltr = &filter1;
 
 // SETUP
 void setup() {
+  pinMode(LED_PIN, OUTPUT);
+  #if defined(MPR121)
+  pinMode(MPR_PWR_PIN, OUTPUT);
+  pinMode(MPR_GND_PIN, OUTPUT);
+  digitalWrite(MPR_PWR_PIN, HIGH);
+  digitalWrite(MPR_GND_PIN, LOW);
+  delay(100);
+  if (!capTouch.begin(0x5A)) { // if MPR121 board is not found, just flash LED slowly to indicate error state
+    digitalWrite(LED_PIN, HIGH);
+    delay(1000);
+    digitalWrite(LED_PIN, LOW);
+    delay(1000);
+    while (1);
+  }
+  #endif
   for (int i = 0; i < 12; i++) {
      pinMode(colPin[i],INPUT_PULLUP);
   }
     for (int i = 0; i < 3; i++) {
      pinMode(rowPin[i],OUTPUT);
      digitalWrite(rowPin[i],LOW);
-  }
-  pinMode(LED_PIN, OUTPUT);
+  }  
   for(int i=0;i<128;i++) {  // set up table, midi note number to frequency
       midiToFreq[i] = numToFreq(i);
   }
@@ -257,8 +317,13 @@ void setup() {
   mixer2.gain(1, 0.27);
   mixer2.gain(2, 0.27);
   mixer2.gain(3, 0.27);
+  mixer12.gain(0, 0.27);
+  mixer12.gain(1, 0.27);
+  mixer12.gain(2, 0.27);
+  mixer12.gain(3, 0.27);
   mixer3.gain(0, 0.5);
   mixer3.gain(1, 0.5);
+  mixer3.gain(2, 0.5);
   mixer4.gain(0, 0.27);
   mixer4.gain(1, 0.27);
   mixer4.gain(2, 0.27);
@@ -267,8 +332,13 @@ void setup() {
   mixer5.gain(1, 0.27);
   mixer5.gain(2, 0.27);
   mixer5.gain(3, 0.27);
+  mixer13.gain(0, 0.27);
+  mixer13.gain(1, 0.27);
+  mixer13.gain(2, 0.27);
+  mixer13.gain(3, 0.27);
   mixer6.gain(0, 0.5);
   mixer6.gain(1, 0.5);
+  mixer6.gain(2, 0.5);
   mixer8.gain(0, 0.27);
   mixer8.gain(1, 0.27);
   mixer8.gain(2, 0.27);
@@ -317,10 +387,21 @@ void loop() {
     } else {
       readKeyboard();                                                    // read keyboard input and replay active notes (if any) with new chording
     }
+    #if defined(MPR121)
+    touchValue = capTouch.touched();
+    #endif
     for (int scanSensors = 0; scanSensors < PADS; scanSensors++) {       // scan sensors for changes and send note on/off accordingly
-      sensedNote = (touchRead(sensorPin[scanSensors]) > TOUCH_THR);      // read touch pad/pin/electrode/string/whatever
+      #if defined(MPR121)
+      sensedNote = ((touchValue >> scanSensors) & 0x01);                 // read touch pad/pin/electrode/string/whatever (MPR121 cap touch)
+      #else
+      sensedNote = (touchRead(sensorPin[scanSensors]) > TOUCH_THR);      // read touch pad/pin/electrode/string/whatever (internal cap touch)
+      #endif
       if (sensedNote != activeNote[scanSensors]) {
-        noteNumber = START_NOTE + chord + chordNote[chordType][scanSensors];
+        if (reverse){
+          noteNumber = START_NOTE + chord + chordNote[chordType][PADS-scanSensors];
+        } else {
+          noteNumber = START_NOTE + chord + chordNote[chordType][scanSensors];
+        }
         if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][scanSensors] > -1)) {    // we don't want to send midi out of range or play silent notes
           digitalWrite(LED_PIN, HIGH);                                // sending midi, so light up led
           if (sensedNote){
@@ -377,7 +458,11 @@ void readKeyboard() {
   }  
   if ((readChord != chord) || (readChordType != chordType)) { // have the values changed since last scan?
     for (int i = 0; i < PADS; i++) {
-       noteNumber = START_NOTE + chord + chordNote[chordType][i];
+       if (reverse) {
+         noteNumber = START_NOTE + chord + chordNote[chordType][PADS - i];
+       } else {
+         noteNumber = START_NOTE + chord + chordNote[chordType][i];
+       }
        if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][i] > -1)) {      // we don't want to send midi out of range or play silent notes
          if (activeNote[i]) {
           digitalWrite(LED_PIN, HIGH);                        // sending midi, so light up led
@@ -388,7 +473,11 @@ void readKeyboard() {
        }
     }
     for (int i = 0; i < PADS; i++) {
-      noteNumber = START_NOTE + readChord + chordNote[readChordType][i];
+      if (reverse) {
+        noteNumber = START_NOTE + readChord + chordNote[readChordType][PADS - i];
+      } else {
+        noteNumber = START_NOTE + readChord + chordNote[readChordType][i];
+      }
       if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[readChordType][i] > -1)) {    // we don't want to send midi out of range or play silent notes
         if (i < 4) internalBackingChordOn(noteNumber-12, i);
         if (activeNote[i]) {
@@ -553,7 +642,7 @@ void readSettings() {
             mixer11.gain(2, basLevel);
             break;
           case 10:
-            //do stuff
+            reverse = !reverse;
             break;
           case 11:
             //do stuff

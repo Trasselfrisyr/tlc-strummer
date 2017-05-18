@@ -53,9 +53,13 @@ As default, the backing chord (if activated) is gated in a rhythmic pattern. To 
 
 Now also bassline patterns. Use set+E and set+E for volume, and set+A for on/off.
 
+Added support for hooking up an MPR121 board to get 12 strings instead of the built in 8. Un-comment the #define MPR121 line, recompile and upload. Connect MPR121 board to SCL, SDA, 3.3V and GND. (I've made it possible to use pin 23 for 3.3V and pin 16 for GND, so you can stick the MPR121 directly onto the header pins otherwise used as touch sensors).
+
+Added option to reverse strumming direction with set+B.
+
 Settings chart:
 
-[      ][str v-][str mod][str v+][bas v-][bas 1/0][bas v+][      ]
+[      ][str v-][str mod][str v+][bas v-][bas 1/0][bas v+][revers]
 
 [      ][bac v-][bac 1/0][bac v+][tempo-][bac gat][tempo+][      ]
 
