@@ -86,7 +86,11 @@ byte activeNote[12]      = {0,0,0,0,0,0,0,0,0,0,0,0};                // keeps tr
 byte sensedNote;               // current reading
 byte chordButtonPressed;
 byte patch = OMNICHORD;        // built in audio sound setting (default)
+#if defined(MPR121)
+byte reverse = 1;              // reverse strumming direction (default setting if MPR121)
+#else
 byte reverse = 0;              // reverse strumming direction
+#endif
 byte backing = 0;              // backing chord on/off 1/0 (default)
 byte rhythm = 0;               // rhythm on/off  
 byte gated = 1;                // gated chords if rhythm on
@@ -398,7 +402,7 @@ void loop() {
       #endif
       if (sensedNote != activeNote[scanSensors]) {
         if (reverse){
-          noteNumber = START_NOTE + chord + chordNote[chordType][PADS-scanSensors];
+          noteNumber = START_NOTE + chord + chordNote[chordType][PADS-1-scanSensors];
         } else {
           noteNumber = START_NOTE + chord + chordNote[chordType][scanSensors];
         }
@@ -407,7 +411,11 @@ void loop() {
           if (sensedNote){
               usbMIDI.sendNoteOn(noteNumber, VELOCITY, MIDI_CH);      // send Note On, USB MIDI
               internalSineNoteOn(noteNumber-12, scanSensors);         // play sine note with teensy audio (built in DAC)
+              #if defined(MPR121)
+              internalStringNoteOn(noteNumber-24, scanSensors);       // play string note with teensy audio (built in DAC)
+              #else
               internalStringNoteOn(noteNumber-12, scanSensors);       // play string note with teensy audio (built in DAC)
+              #endif
           } else {
               usbMIDI.sendNoteOff(noteNumber, VELOCITY, MIDI_CH);     // send note Off, USB MIDI
               internalSineNoteOff(scanSensors);            // note off for internal audio (fade out)
@@ -459,7 +467,7 @@ void readKeyboard() {
   if ((readChord != chord) || (readChordType != chordType)) { // have the values changed since last scan?
     for (int i = 0; i < PADS; i++) {
        if (reverse) {
-         noteNumber = START_NOTE + chord + chordNote[chordType][PADS - i];
+         noteNumber = START_NOTE + chord + chordNote[chordType][PADS -1 - i];
        } else {
          noteNumber = START_NOTE + chord + chordNote[chordType][i];
        }
@@ -474,12 +482,12 @@ void readKeyboard() {
     }
     for (int i = 0; i < PADS; i++) {
       if (reverse) {
-        noteNumber = START_NOTE + readChord + chordNote[readChordType][PADS - i];
+        noteNumber = START_NOTE + readChord + chordNote[readChordType][PADS -1 - i];
       } else {
         noteNumber = START_NOTE + readChord + chordNote[readChordType][i];
       }
       if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[readChordType][i] > -1)) {    // we don't want to send midi out of range or play silent notes
-        if (reverse && ((PADS - i) < 4)) internalBackingChordOn(noteNumber-12, PADS - i);
+        if (reverse && ((PADS - 1 - i) < 4)) internalBackingChordOn(noteNumber-12, PADS- 1 - i);
         if (!reverse && (i < 4)) internalBackingChordOn(noteNumber-12, i); 
         if (activeNote[i]) {
           digitalWrite(LED_PIN, HIGH);                        // sending midi, so light up led
