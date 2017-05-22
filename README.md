@@ -45,13 +45,13 @@ Momentary setting switch on pin 24 (internal pullup, switch connects to GND).
 
 To switch between autoharp and omnichord type sound, press setting switch and top row (major) C together.
 
-To switch on/off a backing chord that is played at key press, press setting switch and mid row (minor) C together. Adjust volume for backing chord using set+Fm (down) and set+Gm (up).
+To switch on/off a backing chord that is played at key press, press setting switch and mid row (minor) C together. Adjust volume for backing chord using set+Fm (down) and set+Gm (up). (Default on.)
 
 To switch on/off rhythm part, press set+C7. Rhythm part volume is adjusted down with set+F7 and up with set+G7. Next pattern is selected with set+E7 and previous pattern with set+D7. Tempo is controlled with set+Dm (down) and set+Em (up).
 
-As default, the backing chord (if activated) is gated in a rhythmic pattern. To switch this off and on, use set+Am.
+As default, with rhythm on, a backing chord is played, gated in a suiting pattern. To switch this off and on, use set+Am.
 
-Now also bassline patterns. Use set+E and set+E for volume, and set+A for on/off.
+Now also bassline patterns for the rhythm function. Use set+E and set+E for volume, and set+A for on/off.
 
 Added support for hooking up an MPR121 board to get 12 strings instead of the built in 8. Un-comment the #define MPR121 line, recompile and upload. Connect MPR121 board to SCL, SDA, 3.3V and GND. (I've made it possible to use pin 23 for 3.3V and pin 16 for GND, so you can stick the MPR121 directly onto the header pins otherwise used as touch sensors).
 
@@ -65,3 +65,4 @@ Settings chart:
 
 [      ][rtm v-][rtm 1/0][rtm v+][r pat-][       ][r pat+][      ]
 
+Ideas for development: Tap tempo on set+Am (move chord gating to set+A7). Improve patterns for gating and bassline.
