@@ -65,4 +65,4 @@ Settings chart:
 
 [      ][rtm v-][rtm 1/0][rtm v+][r pat-][       ][r pat+][      ]
 
-Ideas for development: Tap tempo on set+Am (move chord gating to set+A7). Improve patterns for gating and bassline.
+
