@@ -39,7 +39,7 @@ Connect the Teensy 3.2 DAC output to an amplifier via a 4.7uF or 10uF capacitor 
 Note that the DAC output pin is not in itself capable of driving speakers or headphones.
 
 
-Work in progress now is the t32-strummer.ino, where I'm' puttin some more stuff in:
+What you will probably like the most, though, is the t32-strummer.ino, where I've put some more stuff in:
 
 Momentary setting switch on pin 24 (internal pullup, switch connects to GND).
 
@@ -51,7 +51,7 @@ To switch on/off rhythm part, press set+C7. Rhythm part volume is adjusted down 
 
 As default, with rhythm on, a backing chord is played, gated in a suiting pattern. To switch this off and on, use set+Am.
 
-Now also bassline patterns for the rhythm function. Use set+E and set+E for volume, and set+A for on/off.
+Now also bassline patterns for the rhythm function. Use set+D and set+E for volume, and set+A for on/off.
 
 Added support for hooking up an MPR121 board to get 12 strings instead of the built in 8. Un-comment the #define MPR121 line, recompile and upload. Connect MPR121 board to SCL, SDA, 3.3V and GND. (I've made it possible to use pin 23 for 3.3V and pin 16 for GND, so you can stick the MPR121 directly onto the header pins otherwise used as touch sensors).
 

@@ -82,7 +82,7 @@ byte rowPin[3]           = {4,3,2};                         // teensy output pin
                                                             // 1 1 0 m7   (min+7th keys)
                                                             // 1 1 1 aug  (maj+min+7th)
 
-byte activeNote[12]      = {0,0,0,0,0,0,0,0,0,0,0,0};                // keeps track of active notes
+byte activeNote[12]      = {0,0,0,0,0,0,0,0,0,0,0,0};       // keeps track of active notes
 
 byte sensedNote;               // current reading
 byte chordButtonPressed;
@@ -123,7 +123,7 @@ float basLevel = 0.6;          // bassline volume level
 
 #if defined(MPR121)
 uint16_t touchValue;
-Adafruit_MPR121          capTouch = Adafruit_MPR121();      // MPR121 connected to pins othervise used for built in cap touch 
+Adafruit_MPR121          capTouch = Adafruit_MPR121();      // MPR121 connected to pins otherwise used for built in cap touch 
 #else
 byte sensorPin[8]       = {1,0,23,22,19,18,17,16};          // teensy touch input pins
 #endif
@@ -273,8 +273,8 @@ AudioConnection          patchCord67(mixer7, dac1);
 AudioSynthWaveformSine*     osc[12]   {&sine1,&sine2,&sine3,&sine4,&sine5,&sine6,&sine7,&sine8,&sine9,&sine10,&sine11,&sine12};
 AudioEffectFade*            fader[12] {&fade1,&fade2,&fade3,&fade4,&fade5,&fade6,&fade7,&fade8,&fade13,&fade14,&fade15,&fade16};
 AudioSynthKarplusStrong*    str[12]   {&string1,&string2,&string3,&string4,&string5,&string6,&string7,&string8,&string9,&string10,&string11,&string12};
-AudioSynthWaveform*         bac[4]   {&waveform1,&waveform2,&waveform3,&waveform4};
-AudioPlayMemory*            rtm[8]   {&playMem1,&playMem2,&playMem3,&playMem4,&playMem5,&playMem6,&playMem7,&playMem8};
+AudioSynthWaveform*         bac[4]    {&waveform1,&waveform2,&waveform3,&waveform4};
+AudioPlayMemory*            rtm[8]    {&playMem1,&playMem2,&playMem3,&playMem4,&playMem5,&playMem6,&playMem7,&playMem8};
 AudioSynthWaveform*         bas     = &waveform5;
 AudioEffectFade*            oscFade = &fade9;
 AudioEffectFade*            strFade = &fade10;
@@ -418,7 +418,7 @@ void loop() {
               #endif
           } else {
               usbMIDI.sendNoteOff(noteNumber, VELOCITY, MIDI_CH);     // send note Off, USB MIDI
-              internalSineNoteOff(scanSensors);            // note off for internal audio (fade out)
+              internalSineNoteOff(scanSensors);                       // note off for internal audio (fade out)
           }
           if (!BRIGHT_LED) digitalWrite(LED_PIN, LOW);                // led off for low brightness
         }  
@@ -467,7 +467,7 @@ void readKeyboard() {
   if ((readChord != chord) || (readChordType != chordType)) { // have the values changed since last scan?
     for (int i = 0; i < PADS; i++) {
        if (reverse) {
-         noteNumber = START_NOTE + chord + chordNote[chordType][PADS -1 - i];
+         noteNumber = START_NOTE + chord + chordNote[chordType][PADS - 1 - i];
        } else {
          noteNumber = START_NOTE + chord + chordNote[chordType][i];
        }
@@ -482,12 +482,12 @@ void readKeyboard() {
     }
     for (int i = 0; i < PADS; i++) {
       if (reverse) {
-        noteNumber = START_NOTE + readChord + chordNote[readChordType][PADS -1 - i];
+        noteNumber = START_NOTE + readChord + chordNote[readChordType][PADS - 1 - i];
       } else {
         noteNumber = START_NOTE + readChord + chordNote[readChordType][i];
       }
       if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[readChordType][i] > -1)) {    // we don't want to send midi out of range or play silent notes
-        if (reverse && ((PADS - 1 - i) < 4)) internalBackingChordOn(noteNumber-12, PADS- 1 - i);
+        if (reverse && ((PADS - 1 - i) < 4)) internalBackingChordOn(noteNumber-12, PADS - 1 - i);
         if (!reverse && (i < 4)) internalBackingChordOn(noteNumber-12, i); 
         if (activeNote[i]) {
           digitalWrite(LED_PIN, HIGH);                        // sending midi, so light up led
@@ -771,7 +771,7 @@ void readSettings() {
             if (rhythm) currentStep = 0;
             break;
           case 6:
-            if (rtmLevel < 1) rtmLevel += 0.1; //rtm vol+
+            if (rtmLevel < 1) rtmLevel += 0.1;   //rtm vol+
             //mixer7.gain(3, rtmLevel);
             mixer11.gain(0, rtmLevel);
             mixer11.gain(1, rtmLevel);
