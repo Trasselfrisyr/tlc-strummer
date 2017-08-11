@@ -1,6 +1,6 @@
 # tlc-strummer
 
-This is the firwmware for T. Chordstrum - USB MIDI chord strummer for Teensy LC and 3.2
+This is the firmware for T. Chordstrum - USB MIDI chord strummer for Teensy LC and 3.2
 
 https://hackaday.io/project/25111-t-chordstrum
 
