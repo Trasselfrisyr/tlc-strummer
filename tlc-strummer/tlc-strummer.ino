@@ -11,7 +11,7 @@
 #define PADS 8               // number of touch electrodes
 #define LED_PIN 13           // LED to indicate midi activity
 #define BRIGHT_LED 1         // LED brightness, 0 is low, 1 is high
-#define TOUCH_THR 1200       // threshold level for capacitive touch (lower is more sensitive)
+#define TOUCH_THR 1500       // threshold level for capacitive touch (lower is more sensitive)
 
 #define CHECK_INTERVAL 4     // interval in ms for sensor check
 
