@@ -7,6 +7,8 @@
 
 //#define MPR121 // Uncomment if using optional MPR121 touch sensor board 
 
+//Compile with USB Type set to "Serial + MIDI + Audio"
+
 #include <Audio.h>
 #include <Wire.h>
 #include <SD.h>
@@ -96,6 +98,7 @@ byte backing = 0;              // backing chord on/off 1/0 (default)
 byte rhythm = 0;               // rhythm on/off  
 byte gated = 1;                // gated chords if rhythm on
 byte bass = 1;                 // bassline if rhythm is on
+byte mode = 0;
 int prevKey = -1;              // edge tracking for setting keys (-1 is no key pressed)
 int prevRow = -1;
 int patNum = 0;                // selected rhythm pattern
@@ -105,7 +108,7 @@ int chord = 0;                 // chord key setting (base note of chord)
 int chordType = 0;             // chord type (maj, min, 7th...)
 
 int chordNote[8][16] = {                               //chord notes for each pad/string (up to 16)
-  {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1 },  //silent
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent
   { 0, 4, 7,12,16,19,24,28,31,36,40,43,48,52,55,60 },  //maj 
   { 0, 3, 7,12,15,19,24,27,31,36,39,43,48,51,55,60 },  //min 
   { 0, 3, 6, 9,12,15,18,21,24,27,30,33,36,39,42,45 },  //dim 
@@ -113,6 +116,39 @@ int chordNote[8][16] = {                               //chord notes for each pa
   { 0, 4, 7,11,12,16,19,23,24,28,31,35,36,40,43,47 },  //maj7
   { 0, 3, 7,10,12,15,19,22,24,27,31,34,36,39,43,46 },  //m7  
   { 0, 4, 8,12,16,20,24,28,32,36,40,44,48,52,56,60 }   //aug  
+};
+
+int chordNoteTers[8][16] = {                               //chord notes for each pad/string (up to 16)
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent
+  { 0,-8,-5,12, 4, 7,24,16,19,36,28,31,48,40,43,60 },  //maj <
+  { 0,-9,-5,12, 3, 7,24,15,19,36,27,31,48,39,43,60 },  //min <
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent
+  { 0,-8,-2,12, 4,10,24,16,22,36,28,34,48,40,46,60 },  //7th <
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent 
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent
+};
+
+int chordNoteGrund[8][16] = {                               //chord notes for each pad/string (up to 16)
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent
+  { 0, 4, 7,12,16,19,24,28,31,36,40,43,48,52,55,60 },  //maj 
+  { 0, 3, 7,12,15,19,24,27,31,36,39,43,48,51,55,60 },  //min 
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent
+  { 0, 4,10,12,16,22,24,28,34,36,40,46,48,52,58,60 },  //7th 
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent  
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent 
+};
+
+int chordNoteKvint[8][16] = {                               //chord notes for each pad/string (up to 16)
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent
+  { 0, 4,-5,12,16, 7,24,28,19,36,40,31,48,52,43,60 },  //maj 
+  { 0, 3,-5,12,15, 7,24,27,19,36,39,31,48,51,43,60 },  //min 
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent
+  { 0, 4,-2,12,16,10,24,28,22,36,40,34,48,52,46,60 },  //7th 
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent  
+  {-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111,-111 },  //silent 
 };
 
 float midiToFreq[128];         // for storing pre calculated frequencies for note numbers
@@ -196,6 +232,7 @@ AudioMixer4              mixer11;        //xy=1104,1035
 AudioEffectFade          fade10;         //xy=1150,318
 AudioEffectFade          fade11;         //xy=1201,687
 AudioMixer4              mixer7;         //xy=1353,276
+AudioOutputUSB           usb1;           //xy=1503.333333333333,413.33333333333326
 AudioOutputAnalog        dac1;           //xy=1509,245
 AudioConnection          patchCord1(sine1, fade1);
 AudioConnection          patchCord2(sine2, fade2);
@@ -264,6 +301,8 @@ AudioConnection          patchCord64(mixer11, 0, mixer7, 3);
 AudioConnection          patchCord65(fade10, 0, mixer7, 1);
 AudioConnection          patchCord66(fade11, 0, mixer7, 2);
 AudioConnection          patchCord67(mixer7, dac1);
+AudioConnection          patchCord68(mixer7, 0, usb1, 0);
+AudioConnection          patchCord69(mixer7, 0, usb1, 1);
 // GUItool: end automatically generated code
 
 
@@ -402,11 +441,11 @@ void loop() {
       #endif
       if (sensedNote != activeNote[scanSensors]) {
         if (reverse){
-          noteNumber = START_NOTE + chord + chordNote[chordType][PADS-1-scanSensors];
+          noteNumber = START_NOTE + chord + omniChordNote(chordType,PADS-1-scanSensors,chord);
         } else {
-          noteNumber = START_NOTE + chord + chordNote[chordType][scanSensors];
+          noteNumber = START_NOTE + chord + omniChordNote(chordType,scanSensors,chord);
         }
-        if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][scanSensors] > -1)) {    // we don't want to send midi out of range or play silent notes
+        if ((noteNumber < 128) && (noteNumber > -1) && (omniChordNote(chordType,scanSensors,chord) > -110)) {    // we don't want to send midi out of range or play silent notes
           digitalWrite(LED_PIN, HIGH);                                // sending midi, so light up led
           if (sensedNote){
               usbMIDI.sendNoteOn(noteNumber, VELOCITY, MIDI_CH);      // send Note On, USB MIDI
@@ -436,7 +475,7 @@ void loop() {
         if (chordButtonPressed && gatePattern[patNum][currentStep]) bacFade->fadeIn(10); else bacFade->fadeOut(200); // play backing chord if a chord key is pressed
       }
       if (bass){ //play bassline notes
-        if (chordButtonPressed && (bassPattern[patNum][currentStep] > -1)){
+        if (chordButtonPressed && (bassPattern[patNum][currentStep] > -110)){
           internalBassNoteOn(START_NOTE + chord + chordNote[chordType][bassPattern[patNum][currentStep]]-24);
           basFade->fadeIn(1);
         }  else {
@@ -448,6 +487,9 @@ void loop() {
       if ((currentStep == 16) || pattern[patNum][currentStep] == 255) currentStep = 0; // start over at step 0 if we passed 15 or next step pattern value is 255 (reset)
     }
   }  
+  while (usbMIDI.read()) {
+    // read & ignore incoming messages
+  }
 }
 // END MAIN LOOP
 
@@ -467,11 +509,11 @@ void readKeyboard() {
   if ((readChord != chord) || (readChordType != chordType)) { // have the values changed since last scan?
     for (int i = 0; i < PADS; i++) {
        if (reverse) {
-         noteNumber = START_NOTE + chord + chordNote[chordType][PADS - 1 - i];
+         noteNumber = START_NOTE + chord + omniChordNote(chordType,PADS - 1 - i,chord);
        } else {
-         noteNumber = START_NOTE + chord + chordNote[chordType][i];
+         noteNumber = START_NOTE + chord + omniChordNote(chordType,i,chord);
        }
-       if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][i] > -1)) {      // we don't want to send midi out of range or play silent notes
+       if ((noteNumber < 128) && (noteNumber > -1) && (omniChordNote(chordType,i,chord) > -110)) {      // we don't want to send midi out of range or play silent notes
          if (activeNote[i]) {
           digitalWrite(LED_PIN, HIGH);                        // sending midi, so light up led
           usbMIDI.sendNoteOff(noteNumber, VELOCITY, MIDI_CH); // send Note Off, USB MIDI
@@ -482,11 +524,11 @@ void readKeyboard() {
     }
     for (int i = 0; i < PADS; i++) {
       if (reverse) {
-        noteNumber = START_NOTE + readChord + chordNote[readChordType][PADS - 1 - i];
+        noteNumber = START_NOTE + readChord + omniChordNote(readChordType,PADS - 1 - i,readChord);
       } else {
-        noteNumber = START_NOTE + readChord + chordNote[readChordType][i];
+        noteNumber = START_NOTE + readChord + omniChordNote(readChordType,i,readChord);
       }
-      if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[readChordType][i] > -1)) {    // we don't want to send midi out of range or play silent notes
+      if ((noteNumber < 128) && (noteNumber > -1) && (omniChordNote(readChordType,i,readChord) > -110)) {    // we don't want to send midi out of range or play silent notes
         if (reverse && ((PADS - 1 - i) < 4)) internalBackingChordOn(noteNumber-12, PADS - 1 - i);
         if (!reverse && (i < 4)) internalBackingChordOn(noteNumber-12, i); 
         if (activeNote[i]) {
@@ -498,7 +540,7 @@ void readKeyboard() {
         }
       }
     }
-    chordButtonPressed =  (chordNote[readChordType][1] > -1);
+    chordButtonPressed =  (omniChordNote(readChordType,1,readChord) > -110);
     if (backing && !(rhythm && gated)) {
        if (chordButtonPressed) bacFade->fadeIn(50); else bacFade->fadeOut(500); // play backing chord if a chord key is pressed
     }
@@ -657,7 +699,7 @@ void readSettings() {
             //do stuff
             break;
           case 1:
-            //do stuff
+            mode = !mode; //switch between standard T.Chordstrum note order and Omnichord style note order
             break;
           case 2:
             //do stuff
@@ -798,3 +840,51 @@ void readSettings() {
     prevRow = readRow;
   }
 }
+
+int omniChordNote(int type, int note, int chord){
+   // chord    Db, Ab, Eb, Bb,  F,  C,  G,  D,  A,  E,  B, F#
+   // col/note  1,  8,  3, 10,  5,  0,  7,  2,  9,  4, 11,  6
+  int outnote = -111;
+  if (mode){ // Omnichord style note order
+    switch(chord){
+      case 1: //Db
+        outnote = chordNoteKvint[type][note];
+        break;
+      case 8: //Ab
+        outnote = chordNoteGrund[type][note];
+        break;
+      case 3: //Eb
+        outnote = chordNoteTers[type][note]; // <
+        break;
+      case 10: //Bb
+        outnote = chordNoteGrund[type][note]; // <
+        break;
+      case 5: //F
+        outnote = chordNoteTers[type][note]; // <
+        break;
+      case 0: //C
+        outnote = chordNoteKvint[type][note]; // <
+        break;
+      case 7: //G
+        outnote = chordNoteGrund[type][note]; // <
+        break;
+      case 2: //D
+        outnote = chordNoteTers[type][note]; // <
+        break;
+      case 9: //A
+        outnote = chordNoteGrund[type][note]; // <
+        break;
+      case 4: //E
+        outnote = chordNoteTers[type][note]; // <
+        break;
+      case 11: //B
+        outnote = chordNoteKvint[type][note]; // <
+        break;
+      case 6: //F#
+        outnote = chordNoteGrund[type][note];
+        break;
+    }
+  } else outnote = chordNote[type][note]; // T.Chordstrum standard note order
+  return outnote;
+}
+
